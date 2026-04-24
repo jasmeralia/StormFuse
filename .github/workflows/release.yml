@@ -93,6 +93,26 @@ jobs:
         shell: bash
         run: make test
 
+      - name: Ensure NSIS
+        shell: pwsh
+        run: |
+          $nsisX86 = "${env:ProgramFiles(x86)}\\NSIS\\makensis.exe"
+          $nsisX64 = "${env:ProgramFiles}\\NSIS\\makensis.exe"
+          if ((Test-Path $nsisX86) -or (Test-Path $nsisX64)) {
+            Write-Host "NSIS already installed"
+          } else {
+            choco install nsis -y
+          }
+
+      - name: Add NSIS to PATH
+        shell: pwsh
+        run: |
+          $nsisDir = "${env:ProgramFiles(x86)}\\NSIS"
+          if (-not (Test-Path $nsisDir)) {
+            $nsisDir = "${env:ProgramFiles}\\NSIS"
+          }
+          $nsisDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Build installer
         shell: bash
         run: make installer

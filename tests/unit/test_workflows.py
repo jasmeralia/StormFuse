@@ -29,6 +29,8 @@ def test_release_workflow_uses_make_targets_on_windows() -> None:
     assert "actions/download-artifact@v4" in workflow
     assert "softprops/action-gh-release@v2" in workflow
     assert workflow.count("run: make generate-third-party") == 2
+    assert "Ensure NSIS" in workflow
+    assert "GITHUB_PATH" in workflow
     assert "run: make deps" in workflow
     assert "run: make fetch-ffmpeg" in workflow
     assert "run: make test" in workflow

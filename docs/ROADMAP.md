@@ -105,3 +105,87 @@ if not adding a `core/` sub-package):
 - Reference: `GaleFling/infrastructure/lambda_function.py`,
   `GaleFling/src/core/log_uploader.py`,
   `GaleFling/src/gui/log_submit_dialog.py`.
+
+---
+
+## Updates
+
+### Auto-update workflow
+
+**Goal:** Add application update support similar to GaleFling so StormFuse can
+check GitHub releases, prompt the user when a newer installer exists, download
+ it safely, and launch the installer after the app exits.
+
+#### Backend / source of truth
+
+Reuse GaleFling's update model:
+
+- Query the GitHub Releases API for `jasmeralia/StormFuse`.
+- Ignore draft releases.
+- Default to stable-only updates, with an opt-in beta/prerelease channel.
+- Select the first matching installer asset (`StormFuse-Setup-*.exe`) from the
+  chosen release.
+
+#### Core
+
+Add a dedicated updater module following GaleFling's pattern:
+
+**`src/stormfuse/core/update_checker.py`** (or `src/stormfuse/update_checker.py`
+if not adding a `core/` package):
+
+- `UpdateInfo` dataclass with:
+  `current_version`, `latest_version`, `release_name`, `release_notes`,
+  `download_url`, `download_size`, `browser_url`, `is_prerelease`.
+- `check_for_updates(include_prerelease: bool = False) -> UpdateInfo | None`
+  that:
+  - calls the GitHub Releases API with a short timeout,
+  - compares versions against `config.APP_VERSION`,
+  - returns `None` when up to date or on soft failure,
+  - logs success / no-update / error cases with stable event names.
+
+#### UI / flow
+
+- Add **Help → Check for Updates**.
+- Add a startup update check gated by config, similar to GaleFling's
+  `auto_check_updates` behavior.
+- Add a modal update dialog showing:
+  - current version,
+  - available version,
+  - stable vs beta label,
+  - release notes,
+  - a primary **Download and Install** action.
+- Download the installer on a `QThread` with a progress dialog so the UI
+  remains responsive.
+- Save the installer to the user's Downloads directory.
+- Validate the download before launch:
+  - reject obviously invalid/too-small binaries,
+  - verify file size against the GitHub release asset size when available.
+- Launch the installer as a detached process, then exit StormFuse so the
+  installer can replace the current installation cleanly.
+
+#### Settings
+
+Add update preferences similar to GaleFling:
+
+- `auto_check_updates: bool = True`
+- `allow_prerelease_updates: bool = False`
+
+Expose them in a future settings surface or advanced preferences dialog.
+
+#### Notes
+
+- Reference implementation:
+  - `GaleFling/src/core/update_checker.py`
+  - `GaleFling/src/gui/update_dialog.py`
+  - `GaleFling/src/gui/main_window.py`
+  - `GaleFling/src/gui/settings_dialog.py`
+- StormFuse currently has no settings dialog, so the first pass may need a
+  simpler UX: Help-menu manual checks first, then startup checks/preferences in
+  a follow-up.
+- Unit tests should cover:
+  - no update available,
+  - stable update available,
+  - prerelease gating,
+  - malformed GitHub payloads,
+  - network failures,
+  - installer download validation and launch flow.

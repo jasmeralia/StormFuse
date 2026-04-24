@@ -1,0 +1,79 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.0] - 2026-04-24
+
+### Added
+
+#### Combine workflow (§5.1)
+- File list with locale-aware case-insensitive initial sort and drag reorder (Up/Down buttons)
+- Timestamp-aware sort supporting OBS (`YYYYMMDD-HHMMSS`) and MFC (`M-D-YYYY HHMM am/pm`) filename formats
+- Stream-copy eligibility check across 8 signature fields (codec, resolution, fps ±0.01, colour space, bit depth, pixel format, audio codec/rate); mismatches logged in `concat.decision` event
+- Normalize-then-concat fallback: target profile is the largest pixel count (fps tiebreak); intermediates kept on failure, deleted on success
+- Duration-weighted progress across all normalization phases plus the final concat
+- Strategy preview panel (collapsible) with "Why?" tooltip explaining the stream-copy vs. normalize decision
+- Default output path: `<first-stem>-combined.mkv` in the same directory as the first input
+
+#### Compress workflow (§5.2)
+- Target-size slider: 1.0–10.0 GB in 0.1 GB steps, default 9.5 GB
+- Bitrate calculator: overhead and audio budget deducted, video bitrate/maxrate/bufsize derived; Run button disabled with tooltip when `video_bitrate_k ≤ 0`
+- 2-pass encoding: NVENC uses `-multipass fullres`; libx264 uses a true two-pass with log files cleaned up on completion or cancellation
+- Audio: AAC 192 k stereo 48 kHz; container: MP4 + `-movflags +faststart`
+- Default output path: `<stem>-compressed.mp4`
+
+#### NVENC detection (§5.3)
+- Two-step probe: encoder list scan → 1-frame test encode; all four branches covered by unit tests
+- Status bar badge shows `NVENC` or `libx264`; fallback reason logged at INFO under `nvenc.probe`
+- Right-click context menu on status bar to re-run NVENC detection at any time
+
+#### Cancellation (§5.4)
+- Graceful shutdown sequence: `q\n` → 5 s wait → `terminate()` → 3 s wait → `kill()`
+- Final output file deleted on cancel; normalize temp directory and 2-pass log files also cleaned up
+- Cancellation step (`q` / `terminate` / `kill`) logged in `ffmpeg.cancel` event
+
+#### User interface (§6)
+- `QMainWindow` titled "StormFuse" with two-tab central widget (Combine / Compress)
+- Menu bar: File → Exit; Help → About, Open Logs, Clear Log Files
+- Status bar: encoder badge, job state label, elapsed time / ETA
+- Bottom dockable log pane (collapsible) showing human-readable log mirror only — never raw JSON
+- Combine tab: per-row badges for detected timestamp and stream-copy signature; separate filename and folder output fields
+- Compress tab: input browse, size slider with live bitrate preview, 2-pass toggle, encoder badge, split filename/folder output fields
+- About dialog: version, copyright, GPL v3, full dependency list, AI attribution; three buttons — View Licenses, GitHub, Close
+- "Open Logs" opens `%LOCALAPPDATA%\StormFuse\logs\` in Explorer (Linux fallback: `xdg-open`)
+- "Clear Log Files" truncates the held session file and unlinks older files, catching `PermissionError`
+
+#### Logging (§9)
+- JSON Lines format with `event`, `msg`, `ts`, `level`, `job_id`, and `ctx` fields on every record
+- Human-readable mirror stream feeds the log pane and is never mixed with the JSON stream
+- Per-session log files under `%LOCALAPPDATA%\StormFuse\logs\`; `latest.log` written in parallel by a second handler; retention capped at 20 session files
+- Full structured event catalog: `app.start/exit/unhandled`, `nvenc.probe`, `probe.start/result/error`, `concat.decision`, `job.start/finish/cancel/fail`, `ffmpeg.start/progress/stderr/exit/cancel`, `logs.clear`
+- `job_id` (time-sortable: ms timestamp + sequence counter + random suffix) stamped on every log line via `contextvars`
+- `DiagnosticErrorDialog`: shows what/why/next-step guidance and a "Copy diagnostic" button that bundles the event, message, last 10 stderr lines, encoder, and platform into a single copyable string
+
+#### ffmpeg subsystem (§7)
+- `locator.py`: PyInstaller bundle → source tree resolution; no PATH fallback; raises `FfmpegNotFoundError` naming the specific missing item; startup error shown in `DiagnosticErrorDialog` with troubleshooting link
+- `probe.py`: typed `FileProbe` dataclass, `--` before filename, no `shell=True`
+- `signatures.py`: frozen dataclass with all 8 stream-copy eligibility fields
+- `encoders.py`: arg builders return `list[str]`; `detect_encoder()` covers all four probe outcomes
+- `bitrate.py`: pure functions, no side effects
+- `concat.py`: `ConcatPlan` serializable to log via `to_log_ctx()`
+- `runner.py`: `Popen` with list args, no `shell=True`; `CREATE_NO_WINDOW` on Windows; temp-file polling for `-progress` output (avoids Windows named-pipe complexity); stderr tail 200 lines; graceful cancel loop
+
+#### Job layer (§8)
+- `Job(QObject)` base with `progress`, `log`, `done`, `failed`, `finished` signals; `cancel()` idempotent
+- `CombineJob` and `CompressJob` run on `QThread`; single-job model (new job rejected while one is running)
+- `ProbeFilesJob` runs ffprobe on each input in parallel threads before the Combine job starts
+
+#### Architecture and tooling
+- Three-layer architecture (`ffmpeg/` → `jobs/` → `ui/`) enforced by a custom pylint checker (`_pylint_layering.py`); `subprocess` confined to `stormfuse.ffmpeg` and `stormfuse.ui.menu_actions`
+- 152 unit tests (Linux-runnable, no real subprocesses); functional test suite (Windows-only, auto-skipped elsewhere)
+- `mypy --strict` across all source; `ruff` formatting and linting; pylint 10.00/10
+- PyInstaller onedir build with bundled gyan.dev ffmpeg 7.1.1 (SHA-256 pinned)
+- NSIS installer: per-machine or per-user install, optional Desktop shortcut, Add/Remove Programs entry, "Remove application data" checkbox on uninstall
+- GitHub Actions CI (`ci.yml`: lint + unit on every push) and release (`release.yml`: Windows installer on version tag)
+- GPL v3/v2 license compliance: SPDX headers on all Python sources, `resources/licenses/` texts, `THIRD-PARTY.md` regenerated at build time by `build/generate_third_party.py`
+- Single version source of truth: `src/stormfuse/config.py:APP_VERSION`; `pyproject.toml` and NSIS installer derive from it automatically

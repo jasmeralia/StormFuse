@@ -1,0 +1,35 @@
+[MAIN]
+load-plugins = stormfuse._pylint_layering
+
+[MESSAGES CONTROL]
+# Disable rules duplicated by ruff to avoid double-reporting
+disable =
+    C0103,  # invalid-name
+    C0104,  # disallowed-name
+    C0114,  # missing-module-docstring
+    C0115,  # missing-class-docstring
+    C0116,  # missing-function-docstring
+    C0301,  # line-too-long (ruff handles)
+    C0302,  # too-many-lines
+    E0401,  # import-error (mypy handles)
+    E0611,  # no-name-in-module (PyQt6 stubs)
+    R0801,  # duplicate-code
+    R0902,  # too-many-instance-attributes
+    R0903,  # too-few-public-methods
+    R0911,  # too-many-return-statements
+    R0914,  # too-many-locals
+    R0915,  # too-many-statements
+    R0917,  # too-many-positional-arguments
+    R1732,  # consider-using-with
+    W0613,  # unused-argument
+    W0611,  # unused-import (ruff handles)
+    W0614,  # unused-wildcard-import (ruff handles)
+    W0718,  # broad-exception-caught
+
+[DESIGN]
+max-args = 10
+max-branches = 16
+max-returns = 8
+
+[FORMAT]
+max-line-length = 100

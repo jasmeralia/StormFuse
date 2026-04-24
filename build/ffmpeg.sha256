@@ -1,0 +1,5 @@
+# SHA-256 hash for the pinned gyan.dev ffmpeg 7.1.1 essentials build archive.
+# Release date: 2025-03-12
+# Source release: https://github.com/GyanD/codexffmpeg/releases/tag/7.1.1
+# Format: <sha256>  <filename>
+04861d3339c5ebe38b56c19a15cf2c0cc97f5de4fa8910e4d47e5e6404e4a2d4  ffmpeg-7.1.1-essentials_build.zip

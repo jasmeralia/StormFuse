@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stormfuse"
+dynamic = ["version"]
+description = "Combine and compress video files using ffmpeg"
+requires-python = ">=3.12"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Morgan Blackthorne", email = "morgan@windsofstorm.net" }]
+dependencies = ["PyQt6>=6.6"]
+
+[project.scripts]
+stormfuse = "stormfuse.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {attr = "stormfuse.config.APP_VERSION"}
+
+# ---------------------------------------------------------------------------
+# ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "PL"]
+ignore = [
+    "PLR0913",  # too-many-arguments — common in PyQt widget constructors
+    "PLR2004",  # magic-value-comparison — acceptable in tests
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR2004", "S101", "B017", "PLC0415"]
+# runner.py is an inherently complex subprocess wrapper
+"src/stormfuse/ffmpeg/runner.py" = ["PLR0912", "PLR0915"]
+# signatures_match has many early-return branches by design
+"src/stormfuse/ffmpeg/signatures.py" = ["PLR0911", "PLR0912"]
+# PyQt6 widget constructors are unavoidably long
+"src/stormfuse/ui/combine_tab.py" = ["PLR0915"]
+"src/stormfuse/ui/compress_tab.py" = ["PLR0915"]
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/stormfuse"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+strict = false
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+markers = [
+    "windows_only: tests that require Windows",
+    "requires_nvenc: tests that require a working NVENC GPU",
+]
+
+[tool.coverage.run]
+source = ["src/stormfuse"]

@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/dist/
+.eggs/
+
+# Bundled ffmpeg binaries (fetched by make fetch-ffmpeg)
+resources/ffmpeg/*.exe
+resources/ffmpeg/*.dll
+
+# Generated license file
+resources/licenses/THIRD-PARTY.md
+
+# Test / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# PyInstaller
+*.spec
+!build/stormfuse.spec
+build/__pycache__/
+build/version.nsh
+
+# Mypy
+.mypy_cache/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# AI agent local state (runtime / machine-specific; project config is tracked)
+.claude/
+.serena/project.local.yml
+.serena/memories/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# NSIS build output
+*.exe
+!build/installer/

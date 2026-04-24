@@ -1,0 +1,9 @@
+-r requirements.txt
+pytest>=8.2
+pytest-qt>=4.4
+pytest-cov>=5.0
+ruff>=0.4.0
+mypy>=1.10
+pylint>=3.2
+PyInstaller>=6.6
+pyqt6-stubs>=6.6

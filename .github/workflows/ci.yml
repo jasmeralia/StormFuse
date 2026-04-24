@@ -29,6 +29,9 @@ jobs:
       - name: Lint
         run: make lint
 
+      - name: Generate third-party notices
+        run: make generate-third-party
+
       - name: Unit tests
         run: make test
 

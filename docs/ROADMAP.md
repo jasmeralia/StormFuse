@@ -8,6 +8,7 @@ priority-ordered within each section.
 - [1. Log submission to developer](#1-log-submission-to-developer)
 - [2. Auto-update workflow](#2-auto-update-workflow)
 - [3. Dark mode / theme selection](#3-dark-mode--theme-selection)
+- [4. Debug logging / FFREPORT integration](#4-debug-logging--ffreport-integration)
 
 ---
 
@@ -111,6 +112,77 @@ if not adding a `core/` sub-package):
 - Reference: `GaleFling/infrastructure/lambda_function.py`,
   `GaleFling/src/core/log_uploader.py`,
   `GaleFling/src/gui/log_submit_dialog.py`.
+
+### 4. Debug logging / FFREPORT integration
+
+**Goal:** Add a user-facing setting to enable debug logging for ffmpeg itself,
+using `FFREPORT` so ffmpeg writes its own detailed log file into StormFuse's
+log directory. Those ffmpeg-generated logs should then participate in the same
+Help-menu workflows as StormFuse logs: open, clear, and submit to the
+developer.
+
+#### Settings
+
+Add a persisted boolean preference such as:
+
+- `debug_ffmpeg_logging: bool = False`
+
+Expose it in a future settings / advanced preferences surface with clear copy,
+for example:
+
+- **Enable debug ffmpeg logs**
+- Help text: "Writes verbose ffmpeg diagnostic logs to the StormFuse log
+  folder. Useful for troubleshooting. May produce large log files."
+
+#### Runtime behavior
+
+When the setting is enabled:
+
+- Set `FFREPORT` for ffmpeg/ffprobe subprocess launches inside the
+  `stormfuse.ffmpeg` layer only.
+- Point the report file into `config.LOG_DIR`, using a predictable filename
+  pattern such as:
+  - `ffmpeg-<job_id>.log`
+  - `ffprobe-<job_id>.log`
+- Prefer one report file per job/process rather than a single shared file, so
+  uploads and cleanup remain straightforward.
+- Keep the existing StormFuse structured logging in place; `FFREPORT` is an
+  additional troubleshooting artifact, not a replacement.
+
+#### Integration points
+
+- **Help → Open Logs** should naturally reveal the generated ffmpeg report
+  files because they live in the same directory as the app logs.
+- **Help → Clear Log Files** should remove or truncate these ffmpeg report
+  files along with StormFuse's own session logs.
+- **Help → Send Logs…** / diagnostic submission should include the ffmpeg
+  report files in the uploaded log bundle when present.
+- Error dialogs and copied diagnostics can mention when an ffmpeg report file
+  was generated for the failing job.
+
+#### Implementation notes
+
+- `FFREPORT` supports `file=...:level=...`; StormFuse should set the file path
+  explicitly rather than letting ffmpeg write into the working directory.
+- Because Windows paths can contain spaces, build the `FFREPORT` value
+  carefully and cover quoting/escaping with tests.
+- The setting should only affect subprocess environment for ffmpeg/ffprobe,
+  not the whole application process globally.
+- If both StormFuse logging and `FFREPORT` are enabled, continue to log the
+  ffmpeg argv in structured JSON while letting ffmpeg emit its own full trace
+  to file.
+
+#### Notes
+
+- This fits naturally with the existing logging roadmap items because the
+  generated ffmpeg reports become first-class artifacts in the same log
+  directory and help-menu flows.
+- Unit tests should cover:
+  - setting enabled vs disabled,
+  - `FFREPORT` environment generation,
+  - filename placement under `config.LOG_DIR`,
+  - clear-log behavior including ffmpeg report files,
+  - log-upload bundle inclusion when report files exist.
 
 ---
 

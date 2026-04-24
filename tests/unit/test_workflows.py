@@ -28,6 +28,7 @@ def test_release_workflow_uses_make_targets_on_windows() -> None:
     assert "refs/tags/${{ env.TAG_NAME }}" in workflow
     assert "actions/download-artifact@v4" in workflow
     assert "softprops/action-gh-release@v2" in workflow
+    assert workflow.count("run: make generate-third-party") == 2
     assert "run: make deps" in workflow
     assert "run: make fetch-ffmpeg" in workflow
     assert "run: make test" in workflow

@@ -754,8 +754,9 @@ plus any type stubs.
      → upload `coverage.xml`.
   2. `build-installer` on `windows-latest`: checkout tagged source → setup Python 3.12
      → `make deps` → `make fetch-ffmpeg` (validates pinned SHA-256 against the
-     configured archive filename, not any redirected CDN UUID path) → `make test`
-     → `make installer` → upload the installer artifact.
+     configured archive filename, not any redirected CDN UUID path) →
+     `make generate-third-party` → `make test` → `make installer` →
+     upload the installer artifact.
   3. `release` on `ubuntu-latest`: download the installer artifact and publish the
      GitHub release with generated notes via `softprops/action-gh-release`.
 

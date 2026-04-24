@@ -85,6 +85,10 @@ jobs:
         shell: bash
         run: make fetch-ffmpeg
 
+      - name: Generate third-party notices
+        shell: bash
+        run: make generate-third-party
+
       - name: Run unit tests
         shell: bash
         run: make test

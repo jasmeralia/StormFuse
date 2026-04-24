@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 APP_NAME = "StormFuse"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 ORG_NAME = "Winds of Storm"
 
 

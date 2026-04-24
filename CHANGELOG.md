@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-04-24
+
+### Fixed
+
+#### Release pipeline (§16)
+- Fixed `build/fetch_ffmpeg.py` so the pinned archive hash is matched against the configured ffmpeg asset name instead of GitHub's redirected CDN UUID path, unblocking the Windows release build for tagged releases
+- Added a regression test covering GitHub release-asset redirects during `make fetch-ffmpeg`
+- Restructured GitHub Actions to match GaleFling's CI/release layout more closely: named jobs, tag-ref checkout for releases, split lint/test and release stages, and artifact-based publishing via `softprops/action-gh-release`
+
 ## [1.0.0] - 2026-04-24
 
 ### Added

@@ -735,23 +735,29 @@ plus any type stubs.
 
 - Triggers: `push`, `pull_request`.
 - Runs on `ubuntu-latest`.
-- Steps: checkout → setup Python 3.12 → `make deps` → `make lint` → `make test`.
+- Branch filters: `master` for both `push` and `pull_request`.
+- Permissions: `contents: read`.
+- Steps: checkout → setup Python 3.12 → `make deps` → `make lint` →
+  `make generate-third-party` → `make test`.
 - Uploads `coverage.xml` as an artifact.
 
 ### 16.2 `release.yml`
 
 - Triggers: `push` tags matching `v*`, and `workflow_dispatch` with an optional
-  `dry_run` bool input.
-- Runs on `windows-latest`.
-- Steps:
-  1. Checkout.
-  2. Setup Python 3.12.
-  3. `make deps`.
-  4. `make fetch-ffmpeg` (validates pinned SHA-256; fail-closed).
-  5. `make test` (unit + any functional tests that don't require NVENC).
-  6. `make installer`.
-  7. Upload installer as a workflow artifact.
-  8. If tag push and not `dry_run`: `gh release create` and attach the installer.
+  `tag` input for manual rebuilds of an existing tag.
+- Uses `TAG_NAME = inputs.tag || github.ref_name` and checks out
+  `refs/tags/${TAG_NAME}` in every job, so rebuilds always use the tagged source.
+- Permissions: `contents: write`.
+- Jobs:
+  1. `lint-and-test` on `ubuntu-latest`: checkout tagged source → setup Python 3.12
+     → `make deps` → `make lint` → `make generate-third-party` → `make test`
+     → upload `coverage.xml`.
+  2. `build-installer` on `windows-latest`: checkout tagged source → setup Python 3.12
+     → `make deps` → `make fetch-ffmpeg` (validates pinned SHA-256 against the
+     configured archive filename, not any redirected CDN UUID path) → `make test`
+     → `make installer` → upload the installer artifact.
+  3. `release` on `ubuntu-latest`: download the installer artifact and publish the
+     GitHub release with generated notes via `softprops/action-gh-release`.
 
 ---
 

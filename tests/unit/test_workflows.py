@@ -11,6 +11,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def test_ci_workflow_uses_make_targets() -> None:
     workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
+    assert "branches:\n      - master" in workflow
+    assert "contents: read" in workflow
     assert "run: make deps" in workflow
     assert "run: make lint" in workflow
     assert "run: make test" in workflow
@@ -22,6 +24,10 @@ def test_ci_workflow_uses_make_targets() -> None:
 def test_release_workflow_uses_make_targets_on_windows() -> None:
     workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
 
+    assert "TAG_NAME" in workflow
+    assert "refs/tags/${{ env.TAG_NAME }}" in workflow
+    assert "actions/download-artifact@v4" in workflow
+    assert "softprops/action-gh-release@v2" in workflow
     assert "run: make deps" in workflow
     assert "run: make fetch-ffmpeg" in workflow
     assert "run: make test" in workflow
@@ -31,6 +37,7 @@ def test_release_workflow_uses_make_targets_on_windows() -> None:
     assert "pytest tests/unit/" not in workflow
     assert "pyinstaller build/stormfuse.spec" not in workflow
     assert "makensis build/installer/stormfuse.nsi" not in workflow
+    assert "gh release create" not in workflow
 
 
 def test_makefile_supports_windows_virtualenv_paths() -> None:

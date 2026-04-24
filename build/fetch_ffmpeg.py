@@ -49,10 +49,15 @@ def main() -> None:
     expected = load_expected_hashes()
     FFMPEG_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Derive archive_name from the original URL, not resp.geturl().
+    # GitHub release redirects go through a CDN whose final URL has a UUID
+    # path segment rather than the original filename, which breaks the hash
+    # lookup in ffmpeg.sha256.
+    archive_name = Path(urlparse(FFMPEG_URL).path).name
+
     print(f"Downloading {FFMPEG_URL} …")
     with urlopen(FFMPEG_URL) as resp:
         data = resp.read()
-        archive_name = Path(urlparse(resp.geturl()).path).name
 
     actual_archive_hash = sha256_of(data)
     if archive_name not in expected:

@@ -3,11 +3,17 @@
 Planned features and improvements not yet implemented. Items are roughly
 priority-ordered within each section.
 
+## Table of Contents
+
+- [1. Log submission to developer](#1-log-submission-to-developer)
+- [2. Auto-update workflow](#2-auto-update-workflow)
+- [3. Dark mode / theme selection](#3-dark-mode--theme-selection)
+
 ---
 
 ## Diagnostics
 
-### Log submission to developer
+### 1. Log submission to developer
 
 **Goal:** Let users send a diagnostic bundle directly from the app when
 something goes wrong, so bug reports arrive with structured logs and context
@@ -110,7 +116,7 @@ if not adding a `core/` sub-package):
 
 ## Updates
 
-### Auto-update workflow
+### 2. Auto-update workflow
 
 **Goal:** Add application update support similar to GaleFling so StormFuse can
 check GitHub releases, prompt the user when a newer installer exists, download
@@ -194,7 +200,7 @@ Expose them in a future settings surface or advanced preferences dialog.
 
 ## Appearance
 
-### Dark mode / theme selection
+### 3. Dark mode / theme selection
 
 **Goal:** Add a theme mode option similar to GaleFling so StormFuse can support
 light mode, dark mode, and a system-default option that follows the user's

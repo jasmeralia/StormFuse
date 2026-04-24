@@ -189,3 +189,66 @@ Expose them in a future settings surface or advanced preferences dialog.
   - malformed GitHub payloads,
   - network failures,
   - installer download validation and launch flow.
+
+---
+
+## Appearance
+
+### Dark mode / theme selection
+
+**Goal:** Add a theme mode option similar to GaleFling so StormFuse can support
+light mode, dark mode, and a system-default option that follows the user's
+Windows theme preference.
+
+#### Core
+
+Add a small theme utility module following GaleFling's pattern:
+
+**`src/stormfuse/ui/theme.py`** (or `src/stormfuse/theme.py` if kept outside
+`ui/`):
+
+- `resolve_theme_mode(mode: str) -> Literal["light", "dark"]`
+- Windows registry detection for system theme preference, similar to
+  GaleFling's `windows_prefers_dark()`
+- palette application helper(s) for dark mode
+- Windows title-bar dark mode helper for native-looking themed windows where
+  supported
+
+StormFuse currently has no settings storage beyond constants, so this likely
+requires a small persistent preferences layer or a simple config file for UI
+preferences.
+
+#### UI / flow
+
+- Add a **View** menu with mutually exclusive theme actions:
+  - **System Default**
+  - **Light Mode**
+  - **Dark Mode**
+- Apply the chosen theme to:
+  - the main window,
+  - About dialog,
+  - error dialogs,
+  - future update/log-submission dialogs,
+  - any progress dialogs or modal prompts.
+- Ensure theme changes can be applied live without restarting the app.
+
+#### Behavior
+
+- Default mode should be `system`.
+- On Windows, `system` should follow the OS app-theme setting.
+- Persist the user's chosen mode and restore it on launch.
+- Keep StormFuse's visual language minimal and functional; this does not need
+  GaleFling's exact palette, only comparable capability.
+
+#### Notes
+
+- Reference implementation:
+  - `GaleFling/src/utils/theme.py`
+  - `GaleFling/src/gui/main_window.py`
+- Because StormFuse has a smaller UI surface than GaleFling, first pass can
+  focus on main window + primary dialogs, then extend to all transient dialogs.
+- Unit tests should cover:
+  - theme mode resolution,
+  - menu action state updates,
+  - persisted mode restore,
+  - dialog/application of dark title bar where practical.

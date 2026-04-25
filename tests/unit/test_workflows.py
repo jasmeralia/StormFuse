@@ -21,7 +21,7 @@ def test_ci_workflow_uses_make_targets() -> None:
     assert "pytest tests/unit/" not in workflow
     assert "actions/checkout@v6" in workflow
     assert "actions/setup-python@v6" in workflow
-    assert "actions/upload-artifact@v6" in workflow
+    assert "actions/upload-artifact@v7" in workflow
     assert "codecov/codecov-action@v6" in workflow
     assert "@v4" not in workflow
     assert "@v5" not in workflow
@@ -34,8 +34,8 @@ def test_release_workflow_uses_make_targets_on_windows() -> None:
     assert "refs/tags/${{ env.TAG_NAME }}" in workflow
     assert "actions/checkout@v6" in workflow
     assert "actions/setup-python@v6" in workflow
-    assert "actions/upload-artifact@v6" in workflow
-    assert "actions/download-artifact@v6" in workflow
+    assert "actions/upload-artifact@v7" in workflow
+    assert "actions/download-artifact@v7" in workflow
     assert "codecov/codecov-action@v6" in workflow
     assert "softprops/action-gh-release@v3" in workflow
     assert "@v4" not in workflow

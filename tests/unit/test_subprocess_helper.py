@@ -89,9 +89,8 @@ def test_popen_sets_ffreport_for_ffmpeg_when_enabled(monkeypatch, tmp_path) -> N
 
     assert captured["argv"] == ["C:\\ffmpeg\\bin\\ffmpeg.exe", "-version"]
     assert captured["kwargs"]["stdin"] == 1
-    assert (
-        captured["kwargs"]["env"]["FFREPORT"]
-        == f"file='{tmp_path}/StormFuse Logs/ffmpeg-job-123.log':level=48"
+    assert captured["kwargs"]["env"]["FFREPORT"] == subprocess_helper.build_ffreport_value(
+        str(tmp_path / "StormFuse Logs" / "ffmpeg-job-123.log")
     )
 
 
@@ -125,7 +124,6 @@ def test_run_sets_ffreport_for_ffprobe_when_enabled(monkeypatch) -> None:
         subprocess_helper.configure_debug_logging(False)
 
     assert captured["argv"] == ["/opt/ffprobe", "-version"]
-    assert (
-        captured["kwargs"]["env"]["FFREPORT"]
-        == "file='/tmp/stormfuse-logs/ffprobe-probe-job.log':level=48"
+    assert captured["kwargs"]["env"]["FFREPORT"] == subprocess_helper.build_ffreport_value(
+        str(Path("/tmp/stormfuse-logs/ffprobe-probe-job.log"))
     )

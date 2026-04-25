@@ -58,7 +58,7 @@ def test_upload_success_posts_logs_and_metadata(tmp_path, monkeypatch) -> None:
     assert payload["hostname"] == "DESKTOP-TEST"
     assert payload["username"] == "morgan"
     assert payload["os_version"] == "Windows-11"
-    assert payload["os_platform"] == "linux"
+    assert payload["os_platform"] == log_uploader.sys.platform
     assert payload["encoder"] == "libx264"
     assert [entry["filename"] for entry in payload["log_files"]] == [
         "ffmpeg-job-123.log",

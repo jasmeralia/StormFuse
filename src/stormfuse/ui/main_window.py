@@ -192,13 +192,17 @@ class MainWindow(QMainWindow):
         help_menu = bar.addMenu("Help")
         assert help_menu is not None
 
+        about_action = help_menu.addAction("About")
+        assert about_action is not None
+        about_action.triggered.connect(self._show_about)
+
         update_action = help_menu.addAction("Check for Updates")
         assert update_action is not None
         update_action.triggered.connect(lambda: self._start_update_check(manual=True))
 
-        about_action = help_menu.addAction("About")
-        assert about_action is not None
-        about_action.triggered.connect(self._show_about)
+        clear_logs_action = help_menu.addAction("Clear Log Files")
+        assert clear_logs_action is not None
+        clear_logs_action.triggered.connect(self._clear_logs)
 
         logs_action = help_menu.addAction("Open Logs")
         assert logs_action is not None
@@ -209,10 +213,6 @@ class MainWindow(QMainWindow):
         send_logs_action.triggered.connect(
             lambda: show_log_submit_dialog(self, encoder=self._encoder)
         )
-
-        clear_logs_action = help_menu.addAction("Clear Log Files")
-        assert clear_logs_action is not None
-        clear_logs_action.triggered.connect(self._clear_logs)
 
     def _build_theme_menu(self, view_menu: QMenu) -> None:
         action_group = QActionGroup(self)

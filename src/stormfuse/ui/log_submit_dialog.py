@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 from stormfuse.config import LOG_DIR
 from stormfuse.core.log_uploader import LogUploader
 from stormfuse.ffmpeg.encoders import EncoderChoice
+from stormfuse.logging_setup import clear_log_files
 from stormfuse.ui.theme import apply_widget_theme, show_information_message, show_warning_message
 
 
@@ -163,6 +164,7 @@ class LogSubmitDialog(QDialog):
         self._status_label.setText(message)
         self._set_upload_state(False)
         if success:
+            clear_log_files()
             show_information_message(self, "Logs Sent", message)
             self.accept()
             return

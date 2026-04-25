@@ -139,11 +139,11 @@ def test_help_menu_includes_send_logs_action(qtbot: QtBot, tmp_path: Path) -> No
     )
 
     assert [action.text() for action in help_menu.actions()] == [
-        "Check for Updates",
         "About",
+        "Check for Updates",
+        "Clear Log Files",
         "Open Logs",
         "Send Logs to Jas",
-        "Clear Log Files",
     ]
 
 

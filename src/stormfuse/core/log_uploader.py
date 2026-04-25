@@ -21,9 +21,6 @@ from stormfuse.ffmpeg.locator import FfmpegNotFoundError, ffmpeg_path
 
 log = logging.getLogger("stormfuse.core.log_uploader")
 
-# ffmpeg FFREPORT files (verbose decoder traces) can be hundreds of MB — exclude.
-_FFMPEG_REPORT_PREFIX = "ffmpeg-"
-
 
 @dataclass(frozen=True)
 class _UploadResponse:
@@ -217,14 +214,7 @@ class LogUploader:
 
     def _collect_log_file_paths(self) -> list[Path]:
         self._log_dir.mkdir(parents=True, exist_ok=True)
-        paths: list[Path] = []
-        for path in sorted(self._log_dir.iterdir()):
-            if not path.is_file():
-                continue
-            if path.name.startswith(_FFMPEG_REPORT_PREFIX):
-                continue
-            paths.append(path)
-        return paths
+        return [p for p in sorted(self._log_dir.iterdir()) if p.is_file()]
 
     def _encoder_name(self) -> str:
         encoder = self._encoder

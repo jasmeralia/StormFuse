@@ -87,24 +87,27 @@ def test_upload_success_init_complete_flow(tmp_path, monkeypatch) -> None:
     assert init_payload["os_version"] == "Windows-11"
     assert init_payload["os_platform"] == log_uploader.sys.platform
     assert init_payload["encoder"] == "libx264"
-    # ffmpeg-*.log files must be excluded from the filenames list
-    assert "ffmpeg-job-123.log" not in init_payload["filenames"]
-    assert set(init_payload["filenames"]) == {"latest.log", "stormfuse-20260424-111111-1.log"}
+    # All files in the log dir are included — ffmpeg FFREPORT traces included
+    assert set(init_payload["filenames"]) == {
+        "ffmpeg-job-123.log",
+        "latest.log",
+        "stormfuse-20260424-111111-1.log",
+    }
 
     # Complete call checks
     complete_url, complete_payload = post_calls[1]
     assert complete_url == "https://stormfuse.example/logs/complete"
     assert complete_payload["upload_id"] == "test-uuid"
 
-    # Two files were PUT (gzip-compressed)
-    assert len(put_calls) == 2
+    # Three files were PUT (gzip-compressed), including the ffmpeg FFREPORT file
+    assert len(put_calls) == 3
     for _url, data, content_type in put_calls:
         assert content_type == "application/gzip"
         # Must be valid gzip
         gzip.decompress(data)
 
 
-def test_upload_excludes_ffmpeg_report_files(tmp_path, monkeypatch) -> None:
+def test_upload_includes_ffmpeg_report_files(tmp_path, monkeypatch) -> None:
     ffmpeg_report = tmp_path / "ffmpeg-job-abc.log"
     ffmpeg_report.write_text("verbose trace\n", encoding="utf-8")
 
@@ -113,7 +116,7 @@ def test_upload_excludes_ffmpeg_report_files(tmp_path, monkeypatch) -> None:
     def fake_post_json(self, url, payload):
         if url.endswith("/logs/upload"):
             captured_filenames.extend(payload.get("filenames", []))
-            return _make_init_response([])
+            return _make_init_response(payload.get("filenames", []))
         return _make_complete_response()
 
     monkeypatch.setattr(LogUploader, "_post_json", fake_post_json)
@@ -125,7 +128,7 @@ def test_upload_excludes_ffmpeg_report_files(tmp_path, monkeypatch) -> None:
     uploader = LogUploader(log_dir=tmp_path, enabled=True, encoder=EncoderChoice.NVENC)
     uploader.upload("notes")
 
-    assert "ffmpeg-job-abc.log" not in captured_filenames
+    assert "ffmpeg-job-abc.log" in captured_filenames
 
 
 def test_upload_gzip_compresses_file_content(tmp_path, monkeypatch) -> None:

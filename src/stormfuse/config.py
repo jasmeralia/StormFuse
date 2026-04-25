@@ -5,8 +5,13 @@ import os
 from pathlib import Path
 
 APP_NAME = "StormFuse"
-APP_VERSION = "1.0.4"
+APP_VERSION = "1.0.5"
 ORG_NAME = "Winds of Storm"
+LOG_UPLOAD_ENDPOINT = "https://stormfuse.jasmer.tools/logs/upload"
+LOG_UPLOAD_ENABLED = False
+AUTO_CHECK_UPDATES = True
+ALLOW_PRERELEASE_UPDATES = False
+DEBUG_FFMPEG_LOGGING = False
 
 
 def _log_root() -> Path:
@@ -19,3 +24,8 @@ def _log_root() -> Path:
 
 LOG_DIR: Path = _log_root()
 MAX_LOG_FILES: int = 20
+
+
+def ffmpeg_report_path(tool_name: str, job_id: str) -> Path:
+    """Return the per-job FFREPORT path for *tool_name*."""
+    return LOG_DIR / f"{tool_name}-{job_id}.log"

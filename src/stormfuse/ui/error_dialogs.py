@@ -20,8 +20,10 @@ from PyQt6.QtWidgets import (
 )
 
 from stormfuse import __version__
-from stormfuse.config import LOG_DIR
+from stormfuse.config import LOG_DIR, ffmpeg_report_path
 from stormfuse.ffmpeg.encoders import EncoderChoice
+from stormfuse.ui.menu_actions import show_log_submit_dialog
+from stormfuse.ui.theme import apply_widget_theme
 
 _MAX_STDERR_LINES = 10
 TROUBLESHOOTING_URL = "https://github.com/jasmeralia/stormfuse#troubleshooting"
@@ -136,6 +138,7 @@ class DiagnosticErrorDialog(QDialog):
         layout.addWidget(self._stderr_view, stretch=1)
         layout.addWidget(self._copy_status)
         layout.addWidget(button_box)
+        apply_widget_theme(self)
 
     def _make_label(self, object_name: str, text: str = "") -> QLabel:
         label = QLabel(text, self)
@@ -149,6 +152,10 @@ class DiagnosticErrorDialog(QDialog):
         self._copy_button.setObjectName("copyDiagnosticButton")
         self._copy_button.clicked.connect(self.copy_diagnostic)
         button_box.addButton(self._copy_button, QDialogButtonBox.ButtonRole.ActionRole)
+        self._send_button = QPushButton("Send to Developer", self)
+        self._send_button.setObjectName("diagnosticSendButton")
+        self._send_button.clicked.connect(self.open_log_submit_dialog)
+        button_box.addButton(self._send_button, QDialogButtonBox.ButtonRole.ActionRole)
         if self._action is not None:
             action_button = QPushButton(self._action.label, self)
             action_button.setObjectName("diagnosticActionButton")
@@ -181,10 +188,21 @@ class DiagnosticErrorDialog(QDialog):
         if self._action is not None:
             QDesktopServices.openUrl(QUrl(self._action.url))
 
+    def open_log_submit_dialog(self) -> None:
+        """Open the modal log submission dialog."""
+        show_log_submit_dialog(self, encoder=self._encoder)
 
-def build_job_failure_guidance(workflow: str, event: str, message: str) -> DiagnosticGuidance:
+
+def build_job_failure_guidance(
+    workflow: str,
+    event: str,
+    message: str,
+    *,
+    job_id: str | None = None,
+) -> DiagnosticGuidance:
     """Translate job failure details into user-facing recovery guidance."""
     workflow_name = "Combine" if workflow == "combine" else "Compress"
+    report_note = _job_report_note(event, job_id)
 
     if event == "probe.error":
         target = "one of the selected files" if workflow == "combine" else "the selected input file"
@@ -200,7 +218,7 @@ def build_job_failure_guidance(workflow: str, event: str, message: str) -> Diagn
                 f"{workflow_name} could not start because StormFuse could not inspect {target}."
             ),
             why=message,
-            next_step=retry,
+            next_step=_append_report_note(retry, report_note),
         )
 
     if workflow == "compress" and event == "job.fail" and message.startswith("Cannot compress:"):
@@ -221,13 +239,16 @@ def build_job_failure_guidance(workflow: str, event: str, message: str) -> Diagn
         return DiagnosticGuidance(
             summary=f"{workflow_name} failed while ffmpeg was processing the job.",
             why=message,
-            next_step=retry,
+            next_step=_append_report_note(retry, report_note),
         )
 
     return DiagnosticGuidance(
         summary=f"{workflow_name} failed.",
         why=message,
-        next_step="Copy the diagnostic bundle, review the log excerpt, and try the job again.",
+        next_step=_append_report_note(
+            "Copy the diagnostic bundle, review the log excerpt, and try the job again.",
+            report_note,
+        ),
     )
 
 
@@ -292,3 +313,28 @@ def _read_latest_log(path: Path) -> str:
     if content:
         return content
     return "[latest.log is empty]"
+
+
+def _append_report_note(message: str, report_note: str | None) -> str:
+    if report_note is None:
+        return message
+    return f"{message} {report_note}"
+
+
+def _job_report_note(event: str, job_id: str | None) -> str | None:
+    if not job_id:
+        return None
+
+    tool_name = None
+    if event == "ffmpeg.exit":
+        tool_name = "ffmpeg"
+    elif event == "probe.error":
+        tool_name = "ffprobe"
+
+    if tool_name is None:
+        return None
+
+    report_path = ffmpeg_report_path(tool_name, job_id)
+    if not report_path.is_file():
+        return None
+    return f"A detailed {tool_name} report was written to {report_path}."

@@ -20,6 +20,7 @@ from stormfuse.error_handling import (
     install_sys_hook,
     install_thread_hook,
 )
+from stormfuse.ffmpeg._subprocess import configure_debug_logging
 from stormfuse.ffmpeg.encoders import EncoderChoice, detect_encoder
 from stormfuse.ffmpeg.locator import FfmpegNotFoundError, ffmpeg_path, ffprobe_path, icons_dir
 from stormfuse.logging_setup import setup_logging
@@ -30,6 +31,8 @@ from stormfuse.ui.error_dialogs import (
     show_diagnostic_dialog,
 )
 from stormfuse.ui.main_window import MainWindow
+from stormfuse.ui.settings import debug_ffmpeg_logging_enabled, theme_mode
+from stormfuse.ui.theme import apply_application_theme
 
 log = logging.getLogger("stormfuse.app")
 
@@ -76,6 +79,8 @@ def run_app() -> int:
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationName(ORG_NAME)
+    apply_application_theme(app, theme_mode())
+    configure_debug_logging(debug_ffmpeg_logging_enabled())
     install_qt_message_handler()
     install_signal_hooks()
 
@@ -132,7 +137,7 @@ def run_app() -> int:
 
     # NVENC probe
     encoder = detect_encoder(ffmpeg_exe)
-    window = MainWindow(ffmpeg_exe, ffprobe_exe, encoder)
+    window = MainWindow(ffmpeg_exe, ffprobe_exe, encoder, check_updates_on_startup=True)
     window.show()
 
     exit_code = app.exec()

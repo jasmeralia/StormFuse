@@ -147,6 +147,7 @@ def run_ffmpeg(
         "stderr": subprocess.PIPE,
         "stdin": subprocess.PIPE,
         "cwd": str(cwd) if cwd else None,
+        "job_id": resolved_job_id,
     }
 
     start_time = time.monotonic()

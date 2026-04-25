@@ -11,6 +11,7 @@ from pylint.lint import PyLinter
 
 _STORMFUSE_ROOT: Final[str] = "stormfuse"
 _UI_ROOT: Final[str] = "stormfuse.ui"
+_CORE_ROOT: Final[str] = "stormfuse.core"
 _FFMPEG_ROOT: Final[str] = "stormfuse.ffmpeg"
 _JOBS_ROOT: Final[str] = "stormfuse.jobs"
 _MENU_ACTIONS_MODULE: Final[str] = "stormfuse.ui.menu_actions"
@@ -33,6 +34,16 @@ class StormFuseLayeringChecker(BaseChecker):
             "stormfuse-forbidden-subprocess-import",
             "Used when modules outside the ffmpeg boundary import subprocess.",
         ),
+        "E9503": (
+            "stormfuse.core may not import stormfuse.ui or stormfuse.jobs (%s)",
+            "stormfuse-forbidden-core-upward-import",
+            "Used when core imports UI or job-layer code.",
+        ),
+        "E9504": (
+            "stormfuse.ffmpeg and stormfuse.jobs may not import stormfuse.core (%s)",
+            "stormfuse-forbidden-core-import",
+            "Used when ffmpeg or jobs import core code.",
+        ),
     }
 
     def visit_import(self, node: nodes.Import) -> None:
@@ -44,6 +55,18 @@ class StormFuseLayeringChecker(BaseChecker):
             if _is_jobs_or_ffmpeg_module(module_name) and _targets_ui(imported_name):
                 self.add_message(
                     "stormfuse-forbidden-ui-import",
+                    node=node,
+                    args=(node.as_string(),),
+                )
+            if _is_core_module(module_name) and _targets_ui_or_jobs(imported_name):
+                self.add_message(
+                    "stormfuse-forbidden-core-upward-import",
+                    node=node,
+                    args=(node.as_string(),),
+                )
+            if _is_jobs_or_ffmpeg_module(module_name) and _targets_core(imported_name):
+                self.add_message(
+                    "stormfuse-forbidden-core-import",
                     node=node,
                     args=(node.as_string(),),
                 )
@@ -66,6 +89,29 @@ class StormFuseLayeringChecker(BaseChecker):
         ):
             self.add_message(
                 "stormfuse-forbidden-ui-import",
+                node=node,
+                args=(node.as_string(),),
+            )
+
+        if _is_core_module(module_name) and (
+            _targets_ui_or_jobs(imported_module)
+            or (
+                imported_module == _STORMFUSE_ROOT
+                and (_imports_name(node, "ui") or _imports_name(node, "jobs"))
+            )
+        ):
+            self.add_message(
+                "stormfuse-forbidden-core-upward-import",
+                node=node,
+                args=(node.as_string(),),
+            )
+
+        if _is_jobs_or_ffmpeg_module(module_name) and (
+            _targets_core(imported_module)
+            or (imported_module == _STORMFUSE_ROOT and _imports_name(node, "core"))
+        ):
+            self.add_message(
+                "stormfuse-forbidden-core-import",
                 node=node,
                 args=(node.as_string(),),
             )
@@ -115,6 +161,10 @@ def _is_jobs_or_ffmpeg_module(module_name: str) -> bool:
     )
 
 
+def _is_core_module(module_name: str) -> bool:
+    return _is_package_or_submodule(module_name, _CORE_ROOT)
+
+
 def _subprocess_import_allowed(module_name: str) -> bool:
     return (
         _is_package_or_submodule(module_name, _FFMPEG_ROOT) or module_name == _MENU_ACTIONS_MODULE
@@ -123,6 +173,14 @@ def _subprocess_import_allowed(module_name: str) -> bool:
 
 def _targets_ui(imported_name: str) -> bool:
     return _is_package_or_submodule(imported_name, _UI_ROOT)
+
+
+def _targets_ui_or_jobs(imported_name: str) -> bool:
+    return _targets_ui(imported_name) or _is_package_or_submodule(imported_name, _JOBS_ROOT)
+
+
+def _targets_core(imported_name: str) -> bool:
+    return _is_package_or_submodule(imported_name, _CORE_ROOT)
 
 
 def _targets_subprocess(imported_name: str) -> bool:

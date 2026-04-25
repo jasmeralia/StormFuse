@@ -8,30 +8,65 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from PyQt6.QtCore import QPoint, Qt, QThread, QTimer, pyqtSlot
-from PyQt6.QtGui import QAction
+from PyQt6.QtCore import QObject, QPoint, Qt, QThread, QTimer, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import (
+    QApplication,
     QLabel,
     QMainWindow,
     QMenu,
-    QMessageBox,
     QStatusBar,
     QTabWidget,
     QWidget,
 )
 
+from stormfuse.core.update_checker import UpdateInfo, check_for_updates
+from stormfuse.ffmpeg._subprocess import configure_debug_logging
 from stormfuse.ffmpeg.encoders import EncoderChoice, detect_encoder
 from stormfuse.jobs.base import Job, JobError, JobResult
 from stormfuse.jobs.combine import CombineJob
 from stormfuse.jobs.compress import CompressJob
 from stormfuse.logging_setup import clear_log_files, get_human_handler
+from stormfuse.ui import settings as ui_settings
 from stormfuse.ui.about_dialog import AboutDialog
 from stormfuse.ui.combine_tab import CombineTab
 from stormfuse.ui.compress_tab import CompressTab
 from stormfuse.ui.log_pane import LogPane
-from stormfuse.ui.menu_actions import open_log_dir
+from stormfuse.ui.menu_actions import open_log_dir, show_log_submit_dialog
+from stormfuse.ui.theme import (
+    apply_application_theme,
+    apply_widget_theme,
+    normalize_theme_mode,
+    show_information_message,
+)
+from stormfuse.ui.update_dialog import UpdateDialog
 
 log = logging.getLogger("ui.main_window")
+
+
+class _UpdateCheckWorker(QObject):
+    finished = pyqtSignal(object)
+
+    def __init__(
+        self,
+        check_for_updates_fn: Callable[[bool], UpdateInfo | None],
+        include_prerelease: bool,
+    ) -> None:
+        super().__init__()
+        self._check_for_updates_fn = check_for_updates_fn
+        self._include_prerelease = include_prerelease
+
+    @pyqtSlot()
+    def run(self) -> None:
+        try:
+            result = self._check_for_updates_fn(self._include_prerelease)
+        except Exception:
+            log.exception(
+                "Unhandled update check failure",
+                extra={"event": "update.check.error", "ctx": {"error": "unexpected"}},
+            )
+            result = None
+        self.finished.emit(result)
 
 
 class MainWindow(QMainWindow):
@@ -43,29 +78,32 @@ class MainWindow(QMainWindow):
         parent: QWidget | None = None,
         *,
         detect_encoder_fn: Callable[[Path], EncoderChoice] | None = None,
+        check_updates_on_startup: bool = False,
+        check_for_updates_fn: Callable[[bool], UpdateInfo | None] | None = None,
     ) -> None:
         super().__init__(parent)
         self._ffmpeg_exe = ffmpeg_exe
         self._ffprobe_exe = ffprobe_exe
         self._encoder = encoder
         self._detect_encoder = detect_encoder_fn or detect_encoder
+        self._check_for_updates_fn = check_for_updates_fn or check_for_updates
         self._current_job: Job | None = None
         self._current_thread: QThread | None = None
         self._job_started_at: float | None = None
         self._job_progress: float = 0.0
+        self._update_check_thread: QThread | None = None
+        self._update_check_worker: _UpdateCheckWorker | None = None
+        self._manual_update_check = False
+        self._theme_mode = ui_settings.theme_mode()
+        self._theme_actions: dict[str, QAction] = {}
+        self._theme_action_group: QActionGroup | None = None
+        self._debug_ffmpeg_logs_action: QAction | None = None
 
         self.setWindowTitle("StormFuse")
         self.setMinimumSize(700, 500)
+        configure_debug_logging(ui_settings.debug_ffmpeg_logging_enabled())
 
-        # Tabs
-        self._tabs = QTabWidget()
-        self._combine_tab = CombineTab()
-        self._compress_tab = CompressTab()
-        self._combine_tab.set_encoder(encoder)
-        self._compress_tab.set_encoder(encoder)
-        self._tabs.addTab(self._combine_tab, "Combine")
-        self._tabs.addTab(self._compress_tab, "Compress")
-        self.setCentralWidget(self._tabs)
+        self._build_tabs(encoder)
 
         # Log pane
         self._log_pane = LogPane()
@@ -76,18 +114,7 @@ class MainWindow(QMainWindow):
         if h:
             h.subscribe(self._log_pane.append_line)
 
-        # Status bar
-        self._status_bar = QStatusBar()
-        self.setStatusBar(self._status_bar)
-        self._encoder_badge = QLabel(self._encoder_text())
-        self._job_status = QLabel("Idle")
-        self._elapsed_label = QLabel("")
-        self._eta_label = QLabel("")
-        self._status_bar.addWidget(self._encoder_badge)
-        self._status_bar.addPermanentWidget(self._job_status)
-        self._status_bar.addPermanentWidget(self._elapsed_label)
-        self._status_bar.addPermanentWidget(self._eta_label)
-        self._set_runtime_labels_visible(False)
+        self._build_status_bar()
 
         self._runtime_timer = QTimer(self)
         self._runtime_timer.setInterval(1000)
@@ -102,14 +129,44 @@ class MainWindow(QMainWindow):
         self._build_menu()
 
         # Signal wiring
+        self._wire_tab_signals()
+        self._apply_theme_mode(self._theme_mode, persist=False)
+
+        if check_updates_on_startup:
+            QTimer.singleShot(0, self._maybe_check_for_updates_on_startup)
+
+    # ------------------------------------------------------------------ #
+    # Menu
+    # ------------------------------------------------------------------ #
+
+    def _wire_tab_signals(self) -> None:
         self._combine_tab.run_requested.connect(self._on_combine_run)
         self._combine_tab.cancel_requested.connect(self._cancel_job)
         self._compress_tab.run_requested.connect(self._on_compress_run)
         self._compress_tab.cancel_requested.connect(self._cancel_job)
 
-    # ------------------------------------------------------------------ #
-    # Menu
-    # ------------------------------------------------------------------ #
+    def _build_tabs(self, encoder: EncoderChoice) -> None:
+        self._tabs = QTabWidget()
+        self._combine_tab = CombineTab()
+        self._compress_tab = CompressTab()
+        self._combine_tab.set_encoder(encoder)
+        self._compress_tab.set_encoder(encoder)
+        self._tabs.addTab(self._combine_tab, "Combine")
+        self._tabs.addTab(self._compress_tab, "Compress")
+        self.setCentralWidget(self._tabs)
+
+    def _build_status_bar(self) -> None:
+        self._status_bar = QStatusBar()
+        self.setStatusBar(self._status_bar)
+        self._encoder_badge = QLabel(self._encoder_text())
+        self._job_status = QLabel("Idle")
+        self._elapsed_label = QLabel("")
+        self._eta_label = QLabel("")
+        self._status_bar.addWidget(self._encoder_badge)
+        self._status_bar.addPermanentWidget(self._job_status)
+        self._status_bar.addPermanentWidget(self._elapsed_label)
+        self._status_bar.addPermanentWidget(self._eta_label)
+        self._set_runtime_labels_visible(False)
 
     def _build_menu(self) -> None:
         bar = self.menuBar()
@@ -121,20 +178,66 @@ class MainWindow(QMainWindow):
         assert exit_action is not None
         exit_action.triggered.connect(self.close)
 
+        view_menu = bar.addMenu("View")
+        assert view_menu is not None
+        self._build_theme_menu(view_menu)
+
         help_menu = bar.addMenu("Help")
         assert help_menu is not None
+
+        update_action = help_menu.addAction("Check for Updates")
+        assert update_action is not None
+        update_action.triggered.connect(lambda: self._start_update_check(manual=True))
 
         about_action = help_menu.addAction("About")
         assert about_action is not None
         about_action.triggered.connect(self._show_about)
 
+        debug_logs_action = help_menu.addAction("Enable Debug ffmpeg Logs")
+        assert debug_logs_action is not None
+        debug_logs_action.setCheckable(True)
+        debug_logs_action.setChecked(ui_settings.debug_ffmpeg_logging_enabled())
+        debug_logs_action.setStatusTip(
+            "Writes verbose ffmpeg diagnostic logs to the StormFuse log folder. "
+            "Useful for troubleshooting. May produce large log files."
+        )
+        debug_logs_action.setToolTip(debug_logs_action.statusTip())
+        debug_logs_action.toggled.connect(self._set_debug_ffmpeg_logging)
+        self._debug_ffmpeg_logs_action = debug_logs_action
+
         logs_action = help_menu.addAction("Open Logs")
         assert logs_action is not None
         logs_action.triggered.connect(open_log_dir)
 
+        send_logs_action = help_menu.addAction("Send Logs...")
+        assert send_logs_action is not None
+        send_logs_action.triggered.connect(
+            lambda: show_log_submit_dialog(self, encoder=self._encoder)
+        )
+
         clear_logs_action = help_menu.addAction("Clear Log Files")
         assert clear_logs_action is not None
         clear_logs_action.triggered.connect(self._clear_logs)
+
+    def _build_theme_menu(self, view_menu: QMenu) -> None:
+        action_group = QActionGroup(self)
+        action_group.setExclusive(True)
+        self._theme_actions = {}
+        for mode, label in (
+            ("system", "System Default"),
+            ("light", "Light Mode"),
+            ("dark", "Dark Mode"),
+        ):
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.triggered.connect(
+                lambda _checked=False, mode=mode: self._change_theme_mode(mode)
+            )
+            action_group.addAction(action)
+            view_menu.addAction(action)
+            self._theme_actions[mode] = action
+        self._theme_action_group = action_group
+        self._sync_theme_menu()
 
     # ------------------------------------------------------------------ #
     # Job management
@@ -269,15 +372,66 @@ class MainWindow(QMainWindow):
     def _show_about(self) -> None:
         AboutDialog(self).exec()
 
+    def _set_debug_ffmpeg_logging(self, enabled: bool) -> None:
+        ui_settings.set_debug_ffmpeg_logging_enabled(enabled)
+        configure_debug_logging(enabled)
+
     def _clear_logs(self) -> None:
         counts = clear_log_files()
-        QMessageBox.information(
+        show_information_message(
             self,
             "Logs cleared",
             f"Deleted {counts['deleted']} file(s), "
             f"truncated {counts['truncated']} active file(s), "
             f"failed on {counts['failed']} file(s).",
         )
+
+    def _maybe_check_for_updates_on_startup(self) -> None:
+        if ui_settings.auto_check_updates_enabled():
+            self._start_update_check(manual=False)
+
+    def _start_update_check(self, *, manual: bool) -> None:
+        if self._update_check_thread is not None:
+            return
+
+        include_prerelease = ui_settings.allow_prerelease_updates_enabled()
+        self._manual_update_check = manual
+
+        thread = QThread(self)
+        worker = _UpdateCheckWorker(self._check_for_updates_fn, include_prerelease)
+        worker.moveToThread(thread)
+
+        self._update_check_thread = thread
+        self._update_check_worker = worker
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_update_check_finished)
+        worker.finished.connect(thread.quit)
+        thread.finished.connect(lambda: self._cleanup_update_check(thread, worker))
+        thread.start()
+
+    @pyqtSlot(object)
+    def _on_update_check_finished(self, result: object) -> None:
+        if result is None:
+            if self._manual_update_check:
+                show_information_message(
+                    self,
+                    "StormFuse Updates",
+                    "No newer update is available.",
+                )
+            return
+
+        assert isinstance(result, UpdateInfo)
+        UpdateDialog(result, self).exec()
+
+    def _cleanup_update_check(self, thread: QThread, worker: _UpdateCheckWorker) -> None:
+        if self._update_check_thread is thread:
+            self._update_check_thread = None
+        if self._update_check_worker is worker:
+            self._update_check_worker = None
+        self._manual_update_check = False
+        worker.deleteLater()
+        thread.deleteLater()
 
     # ------------------------------------------------------------------ #
     # Helpers
@@ -292,6 +446,25 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         menu.addAction(self._recheck_nvenc_action)
         return menu
+
+    def _change_theme_mode(self, mode: str) -> None:
+        self._apply_theme_mode(mode, persist=True)
+
+    def _apply_theme_mode(self, mode: str, *, persist: bool) -> None:
+        self._theme_mode = normalize_theme_mode(mode)
+        if persist:
+            ui_settings.set_theme_mode(self._theme_mode)
+            self._theme_mode = ui_settings.theme_mode()
+
+        qapp = QApplication.instance()
+        if isinstance(qapp, QApplication):
+            apply_application_theme(qapp, self._theme_mode)
+        apply_widget_theme(self)
+        self._sync_theme_menu()
+
+    def _sync_theme_menu(self) -> None:
+        for mode, action in self._theme_actions.items():
+            action.setChecked(mode == self._theme_mode)
 
     def _recheck_nvenc(self) -> None:
         self.set_encoder(self._detect_encoder(self._ffmpeg_exe))

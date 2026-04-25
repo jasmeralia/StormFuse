@@ -7,11 +7,14 @@ import time
 from pathlib import Path
 
 import pytest
-from PyQt6.QtWidgets import QTabWidget
+from PyQt6.QtCore import QSettings
+from PyQt6.QtWidgets import QMenu, QTabWidget
 from pytestqt.qtbot import QtBot
 
+from stormfuse.config import APP_NAME, ORG_NAME
 from stormfuse.ffmpeg.encoders import EncoderChoice
 from stormfuse.jobs.base import Job
+from stormfuse.ui import settings as ui_settings
 from stormfuse.ui.main_window import MainWindow
 
 
@@ -117,3 +120,170 @@ def test_status_bar_menu_rechecks_nvenc_and_updates_badge(qtbot: QtBot, tmp_path
     assert detect_calls == [tmp_path / "ffmpeg.exe"]
     assert window._encoder_badge.text() == "NVENC"  # type: ignore[attr-defined]
     assert window._compress_tab._encoder_label.text() == "Encoder: NVENC (h264_nvenc)"  # type: ignore[attr-defined]
+
+
+def test_help_menu_includes_send_logs_action(qtbot: QtBot, tmp_path: Path) -> None:
+    window = MainWindow(
+        ffmpeg_exe=tmp_path / "ffmpeg.exe",
+        ffprobe_exe=tmp_path / "ffprobe.exe",
+        encoder=EncoderChoice.NVENC,
+    )
+    qtbot.addWidget(window)
+    window.show()
+
+    help_menu = next(
+        action.menu()
+        for action in window.menuBar().actions()
+        if action.text() == "Help" and isinstance(action.menu(), QMenu)
+    )
+
+    assert [action.text() for action in help_menu.actions()] == [
+        "Check for Updates",
+        "About",
+        "Enable Debug ffmpeg Logs",
+        "Open Logs",
+        "Send Logs...",
+        "Clear Log Files",
+    ]
+
+
+def test_help_menu_debug_ffmpeg_logs_action_persists_and_reconfigures(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    saved: list[bool] = []
+    configured: list[bool] = []
+
+    def remember_setting(enabled: bool) -> None:
+        saved.append(enabled)
+
+    def remember_config(enabled: bool) -> None:
+        configured.append(enabled)
+
+    monkeypatch.setattr(
+        "stormfuse.ui.main_window.ui_settings.debug_ffmpeg_logging_enabled",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "stormfuse.ui.main_window.ui_settings.set_debug_ffmpeg_logging_enabled",
+        remember_setting,
+    )
+    monkeypatch.setattr(
+        "stormfuse.ui.main_window.configure_debug_logging",
+        remember_config,
+    )
+
+    window = MainWindow(
+        ffmpeg_exe=tmp_path / "ffmpeg.exe",
+        ffprobe_exe=tmp_path / "ffprobe.exe",
+        encoder=EncoderChoice.NVENC,
+    )
+    qtbot.addWidget(window)
+    window.show()
+
+    help_menu = next(
+        action.menu()
+        for action in window.menuBar().actions()
+        if action.text() == "Help" and isinstance(action.menu(), QMenu)
+    )
+    debug_action = next(
+        action for action in help_menu.actions() if action.text() == "Enable Debug ffmpeg Logs"
+    )
+
+    assert debug_action.isCheckable()
+    assert debug_action.isChecked()
+    assert configured == [True]
+
+    debug_action.trigger()
+
+    assert saved == [False]
+    assert configured == [True, False]
+
+
+def test_view_menu_updates_checked_theme_action(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    saved_mode = {"value": "system"}
+    applied_modes: list[str] = []
+
+    monkeypatch.setattr(
+        "stormfuse.ui.main_window.ui_settings.theme_mode",
+        lambda: saved_mode["value"],
+    )
+    monkeypatch.setattr(
+        "stormfuse.ui.main_window.ui_settings.set_theme_mode",
+        lambda mode: saved_mode.__setitem__("value", mode),
+    )
+    monkeypatch.setattr(
+        "stormfuse.ui.main_window.apply_application_theme",
+        lambda _app, mode: applied_modes.append(mode) or "light",
+    )
+    monkeypatch.setattr("stormfuse.ui.main_window.apply_widget_theme", lambda _widget: "light")
+
+    window = MainWindow(
+        ffmpeg_exe=tmp_path / "ffmpeg.exe",
+        ffprobe_exe=tmp_path / "ffprobe.exe",
+        encoder=EncoderChoice.NVENC,
+    )
+    qtbot.addWidget(window)
+    window.show()
+
+    view_menu = next(
+        action.menu()
+        for action in window.menuBar().actions()
+        if action.text() == "View" and isinstance(action.menu(), QMenu)
+    )
+
+    actions = {action.text(): action for action in view_menu.actions()}
+    assert actions["System Default"].isChecked()
+
+    actions["Dark Mode"].trigger()
+
+    assert saved_mode["value"] == "dark"
+    assert applied_modes[-1] == "dark"
+    assert actions["Dark Mode"].isChecked()
+    assert not actions["System Default"].isChecked()
+
+
+def test_main_window_restores_persisted_theme_mode(qtbot: QtBot, tmp_path: Path) -> None:
+    QSettings.setPath(QSettings.Format.NativeFormat, QSettings.Scope.UserScope, str(tmp_path))
+    QSettings(ORG_NAME, APP_NAME).clear()
+    ui_settings.set_theme_mode("dark")
+
+    window = MainWindow(
+        ffmpeg_exe=tmp_path / "ffmpeg.exe",
+        ffprobe_exe=tmp_path / "ffprobe.exe",
+        encoder=EncoderChoice.NVENC,
+    )
+    qtbot.addWidget(window)
+    window.show()
+
+    view_menu = next(
+        action.menu()
+        for action in window.menuBar().actions()
+        if action.text() == "View" and isinstance(action.menu(), QMenu)
+    )
+
+    checked_actions = [action.text() for action in view_menu.actions() if action.isChecked()]
+    assert checked_actions == ["Dark Mode"]
+
+
+def test_startup_update_check_uses_saved_preference(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[bool] = []
+    window = MainWindow(
+        ffmpeg_exe=tmp_path / "ffmpeg.exe",
+        ffprobe_exe=tmp_path / "ffprobe.exe",
+        encoder=EncoderChoice.NVENC,
+    )
+    qtbot.addWidget(window)
+
+    monkeypatch.setattr(
+        "stormfuse.ui.main_window.ui_settings.auto_check_updates_enabled",
+        lambda: True,
+    )
+    monkeypatch.setattr(window, "_start_update_check", lambda *, manual: calls.append(manual))
+
+    window._maybe_check_for_updates_on_startup()  # type: ignore[attr-defined]
+
+    assert calls == [False]

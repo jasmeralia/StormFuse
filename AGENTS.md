@@ -25,7 +25,11 @@ consult docs/docs/DESIGN.md and update it if scope shifts.
 |------|---------|
 | `docs/docs/DESIGN.md` | Authoritative spec. Read before implementation work. |
 | `README.md` | End-user-facing docs. |
-| `src/stormfuse/` | App source. Subpackages: `ffmpeg/`, `jobs/`, `ui/`. |
+| `src/stormfuse/` | App source. Subpackages: `core/`, `ffmpeg/`, `jobs/`, `ui/`. |
+| `src/stormfuse/core/` | UI-agnostic app services shared by the UI layer. |
+| `src/stormfuse/core/__init__.py` | Package marker for UI-agnostic core services. |
+| `src/stormfuse/core/log_uploader.py` | Diagnostic log bundle upload client/service. |
+| `src/stormfuse/core/update_checker.py` | GitHub Releases update checks and installer downloads. |
 | `tests/unit/` | Linux-runnable, no real subprocesses. |
 | `tests/functional/` | Windows-only; auto-skipped elsewhere. |
 | `resources/` | Icons, license texts, bundled `ffmpeg/` binaries (gitignored). |
@@ -38,6 +42,12 @@ Layering rules (enforced by pylint + CI, not just convention):
 - `stormfuse.ui` may import `stormfuse.jobs`.
 - `stormfuse.jobs` may import `stormfuse.ffmpeg`.
 - `stormfuse.ffmpeg` must not import either of the above.
+- `stormfuse.core` may import `stormfuse.ffmpeg`.
+- `stormfuse.ui` may import `stormfuse.core`.
+- `stormfuse.core` must not import `stormfuse.ui` or `stormfuse.jobs`.
+- `stormfuse.ffmpeg` and `stormfuse.jobs` must not import `stormfuse.core`.
+- `stormfuse.core` must not import `subprocess` or `PyQt6.QtWidgets` /
+  `PyQt6.QtGui`.
 - `subprocess` may only be imported inside `stormfuse.ffmpeg` (and
   `stormfuse.ui.menu_actions` for Explorer launch only). If you find yourself
   wanting subprocess elsewhere, you're in the wrong layer.

@@ -14,6 +14,7 @@ from stormfuse.ui.error_dialogs import (
     DiagnosticErrorDialog,
     DiagnosticGuidance,
     build_diagnostic_bundle,
+    build_job_failure_guidance,
 )
 
 
@@ -82,6 +83,7 @@ def test_diagnostic_dialog_shows_excerpt_and_copies_bundle(
     stderr_view = dialog.findChild(QPlainTextEdit, "diagnosticStderrView")
     copy_status = dialog.findChild(QLabel, "diagnosticCopyStatus")
     action_button = dialog.findChild(QPushButton, "diagnosticActionButton")
+    send_button = dialog.findChild(QPushButton, "diagnosticSendButton")
 
     assert summary_label is not None
     assert why_label is not None
@@ -90,6 +92,7 @@ def test_diagnostic_dialog_shows_excerpt_and_copies_bundle(
     assert stderr_view is not None
     assert copy_status is not None
     assert action_button is not None
+    assert send_button is not None
     assert summary_label.text() == "Compress failed while ffmpeg was processing the job."
     assert why_label.text() == "Why: ffmpeg exited with code 1"
     assert (
@@ -106,3 +109,23 @@ def test_diagnostic_dialog_shows_excerpt_and_copies_bundle(
     clipboard_text = QApplication.clipboard().text()
     assert "Encoder state: LIBX264_FALLBACK" in clipboard_text
     assert "latest log body" in clipboard_text
+
+
+def test_build_job_failure_guidance_mentions_report_file(tmp_path, monkeypatch) -> None:
+    report_path = tmp_path / "ffmpeg-job-123.log"
+    report_path.write_text("debug log\n", encoding="utf-8")
+    monkeypatch.setattr(
+        error_dialogs,
+        "ffmpeg_report_path",
+        lambda tool_name, job_id: tmp_path / f"{tool_name}-{job_id}.log",
+    )
+
+    guidance = build_job_failure_guidance(
+        "compress",
+        "ffmpeg.exit",
+        "ffmpeg encode failed",
+        job_id="job-123",
+    )
+
+    assert guidance.next_step is not None
+    assert str(report_path) in guidance.next_step

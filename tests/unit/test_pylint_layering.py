@@ -75,6 +75,92 @@ def test_subprocess_is_allowed_in_documented_modules(tmp_path: Path, monkeypatch
     assert menu_messages == []
 
 
+def test_core_module_cannot_import_ui_package(tmp_path: Path, monkeypatch) -> None:
+    module_path = _write_module(
+        tmp_path,
+        "stormfuse/core/bad_ui_import.py",
+        """
+        import stormfuse.ui.main_window
+        """,
+    )
+
+    messages = _run_pylint(tmp_path, module_path, monkeypatch)
+
+    assert [message.symbol for message in messages] == ["stormfuse-forbidden-core-upward-import"]
+
+
+def test_core_module_cannot_import_jobs_via_root_importfrom(tmp_path: Path, monkeypatch) -> None:
+    module_path = _write_module(
+        tmp_path,
+        "stormfuse/core/bad_jobs_import.py",
+        """
+        from stormfuse import jobs
+        """,
+    )
+
+    messages = _run_pylint(tmp_path, module_path, monkeypatch)
+
+    assert [message.symbol for message in messages] == ["stormfuse-forbidden-core-upward-import"]
+
+
+def test_core_module_may_import_ffmpeg(tmp_path: Path, monkeypatch) -> None:
+    module_path = _write_module(
+        tmp_path,
+        "stormfuse/core/good_ffmpeg_import.py",
+        """
+        from stormfuse.ffmpeg import runner
+        """,
+    )
+
+    messages = _run_pylint(tmp_path, module_path, monkeypatch)
+
+    assert messages == []
+
+
+def test_jobs_module_cannot_import_core_package(tmp_path: Path, monkeypatch) -> None:
+    module_path = _write_module(
+        tmp_path,
+        "stormfuse/jobs/bad_core_import.py",
+        """
+        import stormfuse.core.update_checker
+        """,
+    )
+
+    messages = _run_pylint(tmp_path, module_path, monkeypatch)
+
+    assert [message.symbol for message in messages] == ["stormfuse-forbidden-core-import"]
+
+
+def test_ffmpeg_module_cannot_import_core_via_relative_importfrom(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module_path = _write_module(
+        tmp_path,
+        "stormfuse/ffmpeg/bad_relative_core.py",
+        """
+        from ..core import update_checker
+        """,
+    )
+
+    messages = _run_pylint(tmp_path, module_path, monkeypatch)
+
+    assert [message.symbol for message in messages] == ["stormfuse-forbidden-core-import"]
+
+
+def test_jobs_module_may_import_ffmpeg(tmp_path: Path, monkeypatch) -> None:
+    module_path = _write_module(
+        tmp_path,
+        "stormfuse/jobs/good_ffmpeg_import.py",
+        """
+        from stormfuse.ffmpeg import runner
+        """,
+    )
+
+    messages = _run_pylint(tmp_path, module_path, monkeypatch)
+
+    assert messages == []
+
+
 def _write_module(tmp_path: Path, relative_path: str, source: str) -> Path:
     module_path = tmp_path / relative_path
     module_path.parent.mkdir(parents=True, exist_ok=True)
@@ -96,7 +182,10 @@ def _run_pylint(tmp_path: Path, module_path: Path, monkeypatch) -> list[object]:
         [
             str(module_path.relative_to(tmp_path)),
             "--disable=all",
-            "--enable=stormfuse-forbidden-ui-import,stormfuse-forbidden-subprocess-import",
+            "--enable=stormfuse-forbidden-ui-import,"
+            "stormfuse-forbidden-subprocess-import,"
+            "stormfuse-forbidden-core-upward-import,"
+            "stormfuse-forbidden-core-import",
             "--load-plugins=stormfuse._pylint_layering",
         ],
         reporter=reporter,

@@ -218,3 +218,16 @@ class TestRunFfmpeg:
         assert any(
             record.event == "ffmpeg.exit" and record.job_id == job_id for record in caplog.records
         )
+
+    def test_runner_passes_job_id_to_subprocess_helper(self) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_popen(args: list[str], **kwargs: object) -> MagicMock:
+            captured["argv"] = args
+            captured["kwargs"] = kwargs
+            return _make_mock_proc()
+
+        with patch("stormfuse.ffmpeg.runner.popen", side_effect=fake_popen):
+            run_ffmpeg(FAKE_FFMPEG, [], job_id="run-job-123")
+
+        assert captured["kwargs"]["job_id"] == "run-job-123"

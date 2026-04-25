@@ -99,7 +99,7 @@ build) is gated behind a platform check and auto-skipped off-Windows.
 │                          PyQt6 UI                              │
 │  MainWindow ─┬─ CombineTab ── FileList, RunControls            │
 │              ├─ CompressTab ── InputPicker, SizeSlider, RunCtl │
-│              └─ Menu: File, Help (About, Open Logs, Clear Logs)│
+│              └─ Menu: File, View, Help                         │
 └──────────────────────────┬─────────────────────────────────────┘
                            │ Qt signals/slots
 ┌──────────────────────────▼─────────────────────────────────────┐
@@ -260,7 +260,9 @@ and enables Cancel. No queue, no parallelism — this is intentional.
 ### 6.1 Main window
 
 - `QMainWindow` titled "StormFuse".
-- Menu bar: **File** (Exit), **Help** (About, Open Logs, Clear Log Files).
+- Menu bar: **File** (Exit), **View** (System Default, Light Mode, Dark Mode),
+  **Help** (Check for Updates, About, Enable Debug ffmpeg Logs, Open Logs,
+  Send Logs..., Clear Log Files).
 - Central widget: `QTabWidget` with two tabs, "Combine" and "Compress".
 - Status bar: shows encoder badge (`NVENC` / `libx264`), current job state
   (`Idle` / `Running: <phase>` / `Cancelling`), and elapsed/ETA when running.
@@ -293,11 +295,46 @@ and enables Cancel. No queue, no parallelism — this is intentional.
 
 ### 6.4 Help menu actions
 
+- **Check for Updates** — queries the GitHub Releases API for `jasmeralia/StormFuse`,
+  ignores draft releases, defaults to stable-only updates unless the saved
+  prerelease preference is enabled, and opens a modal update dialog when a newer
+  installer exists. The dialog shows current version, available version, stable
+  vs beta channel, release notes, and a **Download and Install** action. The
+  installer download runs on a `QThread`, writes into the user's Downloads
+  directory, validates the file before launch, then exits StormFuse after
+  launching the installer detached.
 - **About** — §2.4 dialog.
+- **Enable Debug ffmpeg Logs** — persisted boolean preference (default off).
+  When enabled, ffmpeg/ffprobe subprocesses launched for a job receive an
+  `FFREPORT` environment variable that writes a per-job report into `LOG_DIR`
+  using `ffmpeg-<job_id>.log` or `ffprobe-<job_id>.log`. The `FFREPORT` value
+  quotes the full path so Windows paths with spaces are preserved correctly.
 - **Open Logs** — launches Explorer at `%LOCALAPPDATA%\StormFuse\logs\` via
   `subprocess.run(["explorer.exe", str(logs_dir)])`. On non-Windows (dev machines),
   falls back to `xdg-open` / `open` so the feature is at least testable from dev.
+- **Send Logs...** — opens a modal dialog that collects optional user notes,
+  uploads every file currently in the log directory plus basic system metadata,
+  and surfaces the resulting upload status without blocking the UI thread.
 - **Clear Log Files** — §9.3 procedure.
+
+### 6.5 Appearance
+
+- A persisted `theme_mode` UI preference stores one of `system`, `light`, or `dark`.
+- Default mode is `system`.
+- On Windows, `system` follows the user's OS app-theme preference from the
+  standard Personalize registry key.
+- Theme changes apply live to the main window and modal dialogs, including About,
+  diagnostics, log submission, update prompts, and progress dialogs.
+- Where supported, top-level windows request a dark native title bar while the
+  resolved theme is dark.
+
+### 6.6 Diagnostics preferences
+
+- A persisted `debug_ffmpeg_logging` preference stores whether StormFuse should
+  ask ffmpeg/ffprobe to emit their own debug reports.
+- Default value is `False`.
+- Toggling the Help-menu action updates future subprocess launches only; it does
+  not mutate the parent StormFuse process environment globally.
 
 ---
 
@@ -478,6 +515,11 @@ handler pair to keep them in lockstep.
 | `ffmpeg.stderr` | DEBUG | per non-empty line (kept for failure postmortems) |
 | `ffmpeg.reader_crash` | ERROR | stderr/progress reader thread crashed before ffmpeg exit |
 | `ffmpeg.exit` | INFO or ERROR | exit_code, stderr tail on failure |
+| `update.check.start` / `update.check.available` / `update.check.none` / `update.check.error` | INFO / INFO / INFO / WARNING | application update check lifecycle |
+| `update.download.start` / `update.download.success` / `update.download.error` | INFO / INFO / WARNING | installer download lifecycle |
+| `update.launch` / `update.launch.error` | INFO / WARNING | installer launch result |
+| `logs.upload.start` / `logs.upload.success` / `logs.upload.fail` / `logs.upload.disabled` / `logs.upload.skip` | INFO / INFO / WARNING / INFO / WARNING | diagnostic log submission lifecycle |
+| `logs.clear.partial` | WARNING | individual log file could not be deleted during Clear Log Files |
 | `logs.clear` | INFO | user invoked Clear Log Files |
 
 Guidance for contributors: **every user-visible error must have a preceding
@@ -494,6 +536,7 @@ Implementation:
    and `latest.log`): `handler.stream.seek(0); handler.stream.truncate(); handler.stream.flush()`.
    This zeroes the content without breaking the open handle.
 3. For every other file: `os.unlink()`.
+   This includes generated `ffmpeg-*.log` / `ffprobe-*.log` report files.
 4. `PermissionError` on any individual file is caught and logged (at
    `logs.clear.partial`); the operation continues.
 5. On completion, emit `logs.clear` with counts (deleted, truncated, failed).
@@ -671,6 +714,10 @@ StormFuse/
 │       ├── app.py
 │       ├── config.py
 │       ├── logging_setup.py
+│       ├── core/
+│       │   ├── __init__.py
+│       │   ├── log_uploader.py
+│       │   └── update_checker.py
 │       ├── ffmpeg/
 │       │   ├── __init__.py
 │       │   ├── locator.py
@@ -808,7 +855,7 @@ Must cover:
 - No HDR-aware handling; SDR only.
 - No audio-only mode.
 - No 2-pass NVENC for normalize intermediates (quality-targeted CQ is sufficient).
-- No auto-update / telemetry.
+- No telemetry.
 - No code signing (hook exists, cert does not).
 - No installer localization beyond English.
 

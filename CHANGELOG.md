@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2026-04-24
+
+### Added
+
+#### Updates & diagnostics (§6.4, §6.6, §9)
+- Help menu actions for checking GitHub Releases updates, sending logs to the developer, and enabling per-job ffmpeg/ffprobe debug reports
+- `stormfuse.core.update_checker` with stable/prerelease filtering, installer-asset selection, download validation, and structured update lifecycle logging
+- `stormfuse.core.log_uploader` plus a modal log-submission dialog that uploads the current log bundle and system metadata on a background thread
+- Diagnostic error dialogs now include a "Send to Developer" action and mention generated ffmpeg/ffprobe report files when debug logging is enabled
+
+### Changed
+
+#### Appearance & preferences (§6.1, §6.4, §6.5, §6.6)
+- Added a View menu with persisted System Default / Light Mode / Dark Mode theme selection, live palette updates, and Windows dark-title-bar integration where supported
+- Added persisted settings for startup update checks, prerelease update preference, and ffmpeg debug-report generation
+- Help > About and other modal dialogs now follow the active application theme
+
+#### FFmpeg subprocess diagnostics (§7.2, §7.7, §9)
+- ffmpeg/ffprobe launches now receive a per-job `FFREPORT` environment override when debug logging is enabled, without mutating the parent StormFuse process environment
+- Clear Log Files and log uploads now include generated `ffmpeg-*.log` / `ffprobe-*.log` artifacts
+
+### Fixed
+
+- Updated the spec and roadmap to reflect that auto-update support, log submission, appearance controls, and ffmpeg debug-report workflows are now implemented
+
 ## [1.0.4] - 2026-04-24
 
 ### Added

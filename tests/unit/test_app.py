@@ -24,6 +24,9 @@ class _FakeApplication:
     def setWindowIcon(self, _: object) -> None:
         pass
 
+    def exec(self) -> int:
+        return 0
+
 
 def test_run_app_offers_troubleshooting_when_ffmpeg_is_missing(monkeypatch) -> None:
     captured: dict[str, object] = {}
@@ -39,6 +42,7 @@ def test_run_app_offers_troubleshooting_when_ffmpeg_is_missing(monkeypatch) -> N
     monkeypatch.setattr(app_module, "enable_fault_handler", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(app_module, "install_qt_message_handler", lambda: None)
     monkeypatch.setattr(app_module, "install_signal_hooks", lambda: None)
+    monkeypatch.setattr(app_module, "apply_application_theme", lambda *_args, **_kwargs: "light")
     monkeypatch.setattr(app_module, "icons_dir", lambda: (_ for _ in ()).throw(FileNotFoundError()))
     monkeypatch.setattr(
         app_module,
@@ -61,3 +65,37 @@ def test_run_app_offers_troubleshooting_when_ffmpeg_is_missing(monkeypatch) -> N
     assert action.label == "Open Troubleshooting"
     assert action.url == TROUBLESHOOTING_URL
     assert "make fetch-ffmpeg" in str(captured["message"])
+
+
+def test_run_app_enables_startup_update_checks(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _FakeWindow:
+        def __init__(self, ffmpeg_exe, ffprobe_exe, encoder, **kwargs) -> None:
+            captured["ffmpeg_exe"] = ffmpeg_exe
+            captured["ffprobe_exe"] = ffprobe_exe
+            captured["encoder"] = encoder
+            captured.update(kwargs)
+
+        def show(self) -> None:
+            captured["shown"] = True
+
+    monkeypatch.setattr(app_module, "setup_logging", lambda: None)
+    monkeypatch.setattr(app_module, "ExceptionHookingApplication", _FakeApplication)
+    monkeypatch.setattr(app_module, "install_sys_hook", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app_module, "install_thread_hook", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app_module, "enable_fault_handler", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app_module, "install_qt_message_handler", lambda: None)
+    monkeypatch.setattr(app_module, "install_signal_hooks", lambda: None)
+    monkeypatch.setattr(app_module, "apply_application_theme", lambda *_args, **_kwargs: "light")
+    monkeypatch.setattr(app_module, "icons_dir", lambda: (_ for _ in ()).throw(FileNotFoundError()))
+    monkeypatch.setattr(app_module, "ffmpeg_path", lambda: "ffmpeg.exe")
+    monkeypatch.setattr(app_module, "ffprobe_path", lambda: "ffprobe.exe")
+    monkeypatch.setattr(app_module, "detect_encoder", lambda _path: "NVENC")
+    monkeypatch.setattr(app_module, "MainWindow", _FakeWindow)
+
+    exit_code = app_module.run_app()
+
+    assert exit_code == 0
+    assert captured["check_updates_on_startup"] is True
+    assert captured["shown"] is True

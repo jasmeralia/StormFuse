@@ -75,3 +75,18 @@ def test_probe_error_logs_job_id(caplog: pytest.LogCaptureFixture) -> None:
     error_record = next(record for record in caplog.records if record.event == "probe.error")
     assert error_record.job_id == "combine-018bcfe568000000123456789abc"
     assert error_record.ctx["stderr_tail"] == ["line 1", "line 2"]
+
+
+def test_probe_passes_job_id_to_subprocess_helper() -> None:
+    payload = {"streams": [], "format": {"duration": "0", "size": "0"}}
+    captured: dict[str, object] = {}
+
+    def fake_run(argv: list[str], **kwargs: object) -> MagicMock:
+        captured["argv"] = argv
+        captured["kwargs"] = kwargs
+        return MagicMock(returncode=0, stdout=json.dumps(payload), stderr="")
+
+    with patch("stormfuse.ffmpeg.probe.run", side_effect=fake_run):
+        probe(FAKE_FFPROBE, Path("/videos/input.mkv"), job_id="probe-job-123")
+
+    assert captured["kwargs"]["job_id"] == "probe-job-123"

@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 from stormfuse.config import APP_VERSION
 from stormfuse.ffmpeg.locator import icons_dir
 from stormfuse.ui.menu_actions import open_licenses_dir
+from stormfuse.ui.theme import apply_widget_theme
 
 _ABOUT_TEXT = f"""\
 StormFuse v{APP_VERSION}
@@ -73,6 +74,7 @@ class AboutDialog(QDialog):
             layout.addWidget(icon_label)
         layout.addWidget(label)
         layout.addLayout(btn_row)
+        apply_widget_theme(self)
 
     def _load_icon_pixmap(self) -> QPixmap | None:
         try:

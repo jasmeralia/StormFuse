@@ -13,7 +13,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QToolButton,
@@ -29,6 +28,7 @@ from stormfuse.jobs.base import JobError, JobResult
 from stormfuse.jobs.probe import ProbeFilesJob
 from stormfuse.ui.error_dialogs import build_job_failure_guidance, show_diagnostic_dialog
 from stormfuse.ui.settings import KEY_COMBINE_ADD, KEY_COMBINE_OUT, last_dir, remember_dir
+from stormfuse.ui.theme import show_warning_message
 from stormfuse.ui.widgets.file_list import FileListWidget
 
 
@@ -193,7 +193,12 @@ class CombineTab(QWidget):
     def on_job_failed(self, error: JobError) -> None:
         self._phase_label.setText("Failed")
         self.set_running(False)
-        guidance = build_job_failure_guidance("combine", error.event, error.message)
+        guidance = build_job_failure_guidance(
+            "combine",
+            error.event,
+            error.message,
+            job_id=error.job_id,
+        )
         show_diagnostic_dialog(
             self,
             title="Combine failed",
@@ -382,10 +387,10 @@ class CombineTab(QWidget):
     def _selected_output_path(self) -> Path | None:
         filename = self._out_filename.text().strip()
         if not filename:
-            QMessageBox.warning(self, "No output", "Please specify an output filename.")
+            show_warning_message(self, "No output", "Please specify an output filename.")
             return None
         if "/" in filename or "\\" in filename:
-            QMessageBox.warning(
+            show_warning_message(
                 self,
                 "Invalid filename",
                 "Please enter only an output filename. Choose the folder separately.",
@@ -393,7 +398,7 @@ class CombineTab(QWidget):
             return None
         folder = self._out_folder.text().strip()
         if not folder:
-            QMessageBox.warning(self, "No output", "Please specify an output folder.")
+            show_warning_message(self, "No output", "Please specify an output folder.")
             return None
         return Path(folder) / filename
 

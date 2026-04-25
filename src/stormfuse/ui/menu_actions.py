@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Menu action implementations requiring subprocess (§6.4).
+"""Menu action implementations for Help/About surfaces (§6.4).
 
 This is the ONE module outside stormfuse.ffmpeg permitted to use subprocess
 (for Explorer/file-manager launch only — see AGENTS.md §2 layering rules).
@@ -11,7 +11,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from PyQt6.QtWidgets import QWidget
+
 from stormfuse.config import LOG_DIR
+from stormfuse.ffmpeg.encoders import EncoderChoice
+from stormfuse.ui.log_submit_dialog import LogSubmitDialog
 
 
 def open_log_dir() -> None:
@@ -28,6 +32,14 @@ def open_licenses_dir() -> None:
         if candidate.is_dir():
             _open_folder(candidate)
             return
+
+
+def show_log_submit_dialog(
+    parent: QWidget | None = None, *, encoder: EncoderChoice | None = None
+) -> int:
+    """Open the modal diagnostic log submission dialog."""
+    dialog = LogSubmitDialog(parent, encoder=encoder)
+    return dialog.exec()
 
 
 def _open_folder(path: Path) -> None:

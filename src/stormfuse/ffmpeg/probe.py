@@ -86,6 +86,7 @@ def probe(ffprobe_exe: Path, path: Path, *, job_id: str | None = None) -> FilePr
             capture_output=True,
             text=True,
             check=False,
+            job_id=resolved_job_id,
         )
     except OSError as exc:
         stderr_tail = str(exc)

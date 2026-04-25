@@ -5,15 +5,22 @@ from __future__ import annotations
 
 import logging
 import sys
-import traceback
-from types import TracebackType
 
+from PyQt6.QtCore import QEvent, QObject
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication
 
 from stormfuse import __version__
-from stormfuse.config import APP_NAME, APP_VERSION
-from stormfuse.ffmpeg.encoders import detect_encoder
+from stormfuse.config import APP_NAME, APP_VERSION, ORG_NAME
+from stormfuse.error_handling import (
+    UnhandledError,
+    enable_fault_handler,
+    install_qt_message_handler,
+    install_signal_hooks,
+    install_sys_hook,
+    install_thread_hook,
+)
+from stormfuse.ffmpeg.encoders import EncoderChoice, detect_encoder
 from stormfuse.ffmpeg.locator import FfmpegNotFoundError, ffmpeg_path, ffprobe_path, icons_dir
 from stormfuse.logging_setup import setup_logging
 from stormfuse.ui.error_dialogs import (
@@ -27,13 +34,50 @@ from stormfuse.ui.main_window import MainWindow
 log = logging.getLogger("stormfuse.app")
 
 
+class ExceptionHookingApplication(QApplication):
+    """QApplication variant that forwards swallowed Qt exceptions to sys.excepthook."""
+
+    def notify(self, receiver: QObject | None, event: QEvent | None) -> bool:
+        try:
+            return super().notify(receiver, event)
+        except Exception as exc:
+            sys.excepthook(type(exc), exc, exc.__traceback__)
+            return False
+
+
 def run_app() -> int:
     setup_logging()
+    window: MainWindow | None = None
+    encoder: EncoderChoice | None = None
 
-    app = QApplication(sys.argv)
+    def _show_unhandled_error(error: UnhandledError) -> None:
+        app = QApplication.instance()
+        if not isinstance(app, QApplication):
+            return
+        show_diagnostic_dialog(
+            window,
+            title=error.title,
+            message=error.why,
+            event=error.event,
+            stderr_tail=error.stderr_tail,
+            encoder=window.current_encoder() if window is not None else encoder,
+            guidance=DiagnosticGuidance(
+                summary=error.summary,
+                why=error.why,
+                next_step=error.next_step,
+            ),
+        )
+
+    install_sys_hook(_show_unhandled_error)
+    install_thread_hook()
+    enable_fault_handler()
+
+    app = ExceptionHookingApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(APP_VERSION)
-    app.setOrganizationName("Winds of Storm")
+    app.setOrganizationName(ORG_NAME)
+    install_qt_message_handler()
+    install_signal_hooks()
 
     try:
         icons = icons_dir()
@@ -88,44 +132,6 @@ def run_app() -> int:
 
     # NVENC probe
     encoder = detect_encoder(ffmpeg_exe)
-    window: MainWindow | None = None
-
-    # Install top-level exception handler
-    def _excepthook(
-        exc_type: type[BaseException],
-        exc_val: BaseException,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        stderr_tail = "".join(traceback.format_exception(exc_type, exc_val, exc_tb))
-        log.error(
-            "Unhandled exception",
-            extra={
-                "event": "app.unhandled",
-                "error": {
-                    "type": exc_type.__name__,
-                    "message": str(exc_val),
-                    "traceback": stderr_tail,
-                },
-            },
-        )
-        show_diagnostic_dialog(
-            None,
-            title="StormFuse — Unexpected Error",
-            message=f"An unexpected error occurred: {exc_type.__name__}: {exc_val}",
-            event="app.unhandled",
-            stderr_tail=stderr_tail,
-            encoder=window.current_encoder() if window is not None else encoder,
-            guidance=DiagnosticGuidance(
-                summary="StormFuse hit an unexpected error on the UI thread.",
-                why=f"{exc_type.__name__}: {exc_val}",
-                next_step=(
-                    "Copy the diagnostic bundle, then restart StormFuse and retry the last action."
-                ),
-            ),
-        )
-
-    sys.excepthook = _excepthook
-
     window = MainWindow(ffmpeg_exe, ffprobe_exe, encoder)
     window.show()
 

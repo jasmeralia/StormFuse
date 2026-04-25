@@ -11,19 +11,18 @@ import contextlib
 import logging
 import os
 import subprocess
-import sys
 import tempfile
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import BinaryIO, cast
 
+from stormfuse.ffmpeg._subprocess import popen
 from stormfuse.logging_setup import current_job_id
 
 log = logging.getLogger("ffmpeg.runner")
-
-_CREATE_NO_WINDOW = 0x08000000  # Windows only
 
 
 @dataclass
@@ -77,45 +76,31 @@ def _progress_reader(
     done_event: threading.Event,
     job_id: str | None,
 ) -> None:
-    last_emit = 0.0
-    block: list[str] = []
+    try:
+        last_emit = 0.0
+        block: list[str] = []
 
-    while not done_event.is_set():
-        try:
-            with open(progress_path, encoding="utf-8", errors="replace") as f:
-                content = f.read()
-        except OSError:
-            time.sleep(0.1)
-            continue
+        while not done_event.is_set():
+            try:
+                with open(progress_path, encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+            except OSError:
+                time.sleep(0.1)
+                continue
 
-        lines = content.splitlines()
-        block = []
-        for line in lines:
-            if line.startswith("progress="):
-                if block:
-                    now = time.monotonic()
-                    if now - last_emit >= 1.0 or line == "progress=end":
-                        event = _parse_progress_block(block)
-                        on_progress(event)
-                        log.debug(
-                            "ffmpeg progress",
-                            extra=_log_extra(
-                                "ffmpeg.progress",
-                                {
-                                    "out_time_sec": round(event.out_time_sec, 3),
-                                    "speed": event.speed,
-                                    "bitrate_kbps": event.bitrate_kbps,
-                                    "frame": event.frame,
-                                },
-                                job_id,
-                            ),
-                        )
-                        last_emit = now
+            lines = content.splitlines()
+            block = []
+            for line in lines:
+                if not line.startswith("progress="):
+                    block.append(line)
+                    continue
+
+                last_emit = _emit_progress_block(line, block, last_emit, on_progress, job_id)
                 block = []
-            else:
-                block.append(line)
 
-        time.sleep(0.25)
+            time.sleep(0.25)
+    except Exception as exc:
+        _log_reader_crash("progress", exc, job_id)
 
 
 def run_ffmpeg(
@@ -163,13 +148,11 @@ def run_ffmpeg(
         "stdin": subprocess.PIPE,
         "cwd": str(cwd) if cwd else None,
     }
-    if sys.platform == "win32":
-        kwargs["creationflags"] = _CREATE_NO_WINDOW
 
     start_time = time.monotonic()
 
     try:
-        proc = subprocess.Popen(full_argv, **kwargs)  # type: ignore[call-overload]
+        proc = popen(full_argv, **kwargs)
     except OSError as exc:
         log.error(
             "Failed to spawn ffmpeg",
@@ -186,14 +169,23 @@ def run_ffmpeg(
     stderr_lines: list[str] = []
 
     def read_stderr() -> None:
-        assert proc.stderr is not None
-        for raw_line in proc.stderr:
-            line = raw_line.decode(errors="replace").rstrip()
-            stderr_lines.append(line)
-            if on_log:
-                on_log(line)
-            if line:
-                log.debug(line, extra=_log_extra("ffmpeg.stderr", {"line": line}, resolved_job_id))
+        try:
+            stderr_stream = cast(BinaryIO, proc.stderr)
+            for raw_line in stderr_stream:
+                if isinstance(raw_line, bytes):
+                    line = raw_line.decode(errors="replace").rstrip()
+                else:
+                    line = raw_line.rstrip()
+                stderr_lines.append(line)
+                if on_log:
+                    on_log(line)
+                if line:
+                    log.debug(
+                        line,
+                        extra=_log_extra("ffmpeg.stderr", {"line": line}, resolved_job_id),
+                    )
+        except Exception as exc:
+            _log_reader_crash("stderr", exc, resolved_job_id)
 
     stderr_thread = threading.Thread(target=read_stderr, daemon=True)
     stderr_thread.start()
@@ -223,10 +215,10 @@ def run_ffmpeg(
     while proc.poll() is None:
         if cancel_event and cancel_event.is_set():
             with contextlib.suppress(OSError):
-                assert proc.stdin is not None
-                proc.stdin.write(b"q\n")
-                proc.stdin.flush()
-                proc.stdin.close()
+                stdin = cast(BinaryIO, proc.stdin)
+                stdin.write(b"q\n")
+                stdin.flush()
+                stdin.close()
             for _ in range(50):
                 if proc.poll() is not None:
                     break
@@ -286,3 +278,47 @@ def _log_extra(event: str, ctx: dict[str, object], job_id: str | None) -> dict[s
     if job_id is not None:
         extra["job_id"] = job_id
     return extra
+
+
+def _emit_progress_block(
+    progress_line: str,
+    block: list[str],
+    last_emit: float,
+    on_progress: ProgressCallback,
+    job_id: str | None,
+) -> float:
+    if not block:
+        return last_emit
+
+    now = time.monotonic()
+    if now - last_emit < 1.0 and progress_line != "progress=end":
+        return last_emit
+
+    event = _parse_progress_block(block)
+    on_progress(event)
+    log.debug(
+        "ffmpeg progress",
+        extra=_log_extra(
+            "ffmpeg.progress",
+            {
+                "out_time_sec": round(event.out_time_sec, 3),
+                "speed": event.speed,
+                "bitrate_kbps": event.bitrate_kbps,
+                "frame": event.frame,
+            },
+            job_id,
+        ),
+    )
+    return now
+
+
+def _log_reader_crash(reader_name: str, exc: Exception, job_id: str | None) -> None:
+    log.error(
+        "ffmpeg reader thread crashed",
+        extra=_log_extra(
+            "ffmpeg.reader_crash",
+            {"reader": reader_name, "error": str(exc)},
+            job_id,
+        ),
+        exc_info=True,
+    )

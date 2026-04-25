@@ -112,22 +112,28 @@ class TestDetectEncoder:
         def fake_run(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
             raise OSError("ffmpeg missing")
 
-        monkeypatch.setattr("stormfuse.ffmpeg.encoders.subprocess.run", fake_run)
+        monkeypatch.setattr("stormfuse.ffmpeg.encoders.run", fake_run)
 
         assert detect_encoder(tmp_path / "ffmpeg.exe") == EncoderChoice.LIBX264
 
     def test_returns_libx264_when_nvenc_is_not_listed(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        monkeypatch.setattr(
-            "stormfuse.ffmpeg.encoders.subprocess.run",
-            lambda *_args, **_kwargs: subprocess.CompletedProcess(
-                args=[str(tmp_path / "ffmpeg.exe"), "-hide_banner", "-encoders"],
+        def fake_run(
+            argv: list[str], *_args: object, **_kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            if argv[-1] == "-hwaccels":
+                return subprocess.CompletedProcess(
+                    args=argv, returncode=0, stdout="cuda\n", stderr=""
+                )
+            return subprocess.CompletedProcess(
+                args=argv,
                 returncode=0,
                 stdout="Encoders:\n V..... libx264",
                 stderr="",
-            ),
-        )
+            )
+
+        monkeypatch.setattr("stormfuse.ffmpeg.encoders.run", fake_run)
 
         assert detect_encoder(tmp_path / "ffmpeg.exe") == EncoderChoice.LIBX264
 
@@ -138,8 +144,15 @@ class TestDetectEncoder:
 
         def fake_run(
             argv: list[str], *_args: object, **_kwargs: object
-        ) -> subprocess.CompletedProcess[str] | subprocess.CompletedProcess[bytes]:
+        ) -> subprocess.CompletedProcess[str]:
             calls.append(argv)
+            if argv[-1] == "-hwaccels":
+                return subprocess.CompletedProcess(
+                    args=argv,
+                    returncode=0,
+                    stdout="Hardware acceleration methods:\ncuda\n",
+                    stderr="",
+                )
             if argv[-1] == "-encoders":
                 return subprocess.CompletedProcess(
                     args=argv,
@@ -150,14 +163,15 @@ class TestDetectEncoder:
             return subprocess.CompletedProcess(
                 args=argv,
                 returncode=0,
-                stdout=b"",
-                stderr=b"",
+                stdout="",
+                stderr="",
             )
 
-        monkeypatch.setattr("stormfuse.ffmpeg.encoders.subprocess.run", fake_run)
+        monkeypatch.setattr("stormfuse.ffmpeg.encoders.run", fake_run)
 
         assert detect_encoder(tmp_path / "ffmpeg.exe") == EncoderChoice.NVENC
         assert calls == [
+            [str(tmp_path / "ffmpeg.exe"), "-hide_banner", "-hwaccels"],
             [str(tmp_path / "ffmpeg.exe"), "-hide_banner", "-encoders"],
             [
                 str(tmp_path / "ffmpeg.exe"),
@@ -182,10 +196,17 @@ class TestDetectEncoder:
 
         def fake_run(
             argv: list[str], *_args: object, **_kwargs: object
-        ) -> subprocess.CompletedProcess[str] | subprocess.CompletedProcess[bytes]:
+        ) -> subprocess.CompletedProcess[str]:
             nonlocal calls
             calls += 1
             if calls == 1:
+                return subprocess.CompletedProcess(
+                    args=argv,
+                    returncode=0,
+                    stdout="Hardware acceleration methods:\ncuda\n",
+                    stderr="",
+                )
+            if calls == 2:
                 return subprocess.CompletedProcess(
                     args=argv,
                     returncode=0,
@@ -195,10 +216,25 @@ class TestDetectEncoder:
             return subprocess.CompletedProcess(
                 args=argv,
                 returncode=1,
-                stdout=b"",
-                stderr=b"NVENC unavailable",
+                stdout="",
+                stderr="NVENC unavailable",
             )
 
-        monkeypatch.setattr("stormfuse.ffmpeg.encoders.subprocess.run", fake_run)
+        monkeypatch.setattr("stormfuse.ffmpeg.encoders.run", fake_run)
 
         assert detect_encoder(tmp_path / "ffmpeg.exe") == EncoderChoice.LIBX264
+
+    def test_respects_force_encoder_override(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("STORMFUSE_FORCE_ENCODER", "nvenc")
+        monkeypatch.setattr(
+            "stormfuse.ffmpeg.encoders.run",
+            lambda *_args, **_kwargs: pytest.fail("detect_encoder should skip probes"),
+        )
+
+        assert detect_encoder(tmp_path / "ffmpeg.exe") == EncoderChoice.NVENC
+
+        monkeypatch.setenv("STORMFUSE_FORCE_ENCODER", "libx264")
+        assert detect_encoder(tmp_path / "ffmpeg.exe") == EncoderChoice.LIBX264
+        monkeypatch.delenv("STORMFUSE_FORCE_ENCODER", raising=False)

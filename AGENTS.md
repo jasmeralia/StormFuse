@@ -123,6 +123,9 @@ Before declaring any task complete, in order:
 StormFuse logs in **JSON Lines + human mirror** format (docs/DESIGN.md §9). Contract
 for new code:
 
+- Global crash/install-time hooks live in `src/stormfuse/error_handling.py`.
+  `run_app()` installs the sys/thread exception hooks, Qt message handler,
+  signal hooks, and `faulthandler` there; keep new crash-surface work centralized.
 - Log a structured event **before** any error bubbles up to the user. The UI
   dialog should be able to point at a `event` + `msg` already in the log.
 - Use a stable `event` name (snake.dotted) so logs are grep-friendly for both
@@ -137,6 +140,9 @@ for new code:
 
 ## 8. ffmpeg invocation rules
 
+- Use `stormfuse.ffmpeg._subprocess.run()` / `.popen()` as the canonical
+  wrappers for ffmpeg/ffprobe subprocesses so Windows background launches always
+  inherit `CREATE_NO_WINDOW`.
 - Always `subprocess.Popen` with a list of args. Never `shell=True`.
 - Always `-hide_banner -y`. Always include `-progress <pipe> -nostats` for jobs
   that need progress reporting.

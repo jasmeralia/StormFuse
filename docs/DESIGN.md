@@ -462,13 +462,21 @@ handler pair to keep them in lockstep.
 | Event | Level | When |
 |-------|-------|------|
 | `app.start` / `app.exit` | INFO | app lifecycle, includes version + platform |
+| `app.unhandled` / `app.thread_unhandled` | ERROR | unexpected exceptions on the UI thread or a background Python thread |
+| `app.qt_message` | DEBUG / INFO / WARNING / ERROR / CRITICAL | Qt runtime messages routed through the installed message handler |
+| `app.signal` | INFO | SIGINT / SIGTERM received; app is shutting down gracefully |
+| `app.fault` | INFO | faulthandler enabled and writing native crash dumps to `fatal_errors.log` |
 | `nvenc.probe` | INFO | NVENC detection result incl. reason on fallback |
+| `nvenc.probe_skipped` | INFO | encoder forced via `STORMFUSE_FORCE_ENCODER` |
+| `nvenc.probe_timeout` | INFO | NVENC test encode timed out and fell back |
+| `nvenc.hwaccels` | INFO | `ffmpeg -hwaccels` probe result and stdout excerpt |
 | `probe.start` / `probe.result` / `probe.error` | DEBUG / DEBUG / ERROR | per ffprobe call |
 | `concat.decision` | INFO | carries `strategy`, mismatched fields, target sig |
 | `job.start` / `job.finish` / `job.cancel` / `job.fail` | INFO / INFO / WARNING / ERROR | job lifecycle |
 | `ffmpeg.start` | INFO | includes full argv |
 | `ffmpeg.progress` | DEBUG | sampled at most 1/sec |
 | `ffmpeg.stderr` | DEBUG | per non-empty line (kept for failure postmortems) |
+| `ffmpeg.reader_crash` | ERROR | stderr/progress reader thread crashed before ffmpeg exit |
 | `ffmpeg.exit` | INFO or ERROR | exit_code, stderr tail on failure |
 | `logs.clear` | INFO | user invoked Clear Log Files |
 

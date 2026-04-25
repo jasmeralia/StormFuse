@@ -33,7 +33,12 @@ def test_run_app_offers_troubleshooting_when_ffmpeg_is_missing(monkeypatch) -> N
         captured.update(kwargs)
 
     monkeypatch.setattr(app_module, "setup_logging", lambda: None)
-    monkeypatch.setattr(app_module, "QApplication", _FakeApplication)
+    monkeypatch.setattr(app_module, "ExceptionHookingApplication", _FakeApplication)
+    monkeypatch.setattr(app_module, "install_sys_hook", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app_module, "install_thread_hook", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app_module, "enable_fault_handler", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app_module, "install_qt_message_handler", lambda: None)
+    monkeypatch.setattr(app_module, "install_signal_hooks", lambda: None)
     monkeypatch.setattr(app_module, "icons_dir", lambda: (_ for _ in ()).throw(FileNotFoundError()))
     monkeypatch.setattr(
         app_module,

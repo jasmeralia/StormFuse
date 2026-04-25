@@ -24,7 +24,7 @@ from stormfuse.config import LOG_DIR
 from stormfuse.ffmpeg.encoders import EncoderChoice
 
 _MAX_STDERR_LINES = 10
-TROUBLESHOOTING_URL = "https://github.com/winds-of-storm/stormfuse#troubleshooting"
+TROUBLESHOOTING_URL = "https://github.com/jasmeralia/stormfuse#troubleshooting"
 
 
 @dataclass(frozen=True)

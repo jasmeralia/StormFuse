@@ -32,6 +32,8 @@ def open_licenses_dir() -> None:
 
 def _open_folder(path: Path) -> None:
     if sys.platform == "win32":
+        # Explorer launch is a deliberate user action, so this stays local instead of using the
+        # ffmpeg-layer subprocess helper that suppresses console windows for background processes.
         subprocess.run(["explorer.exe", str(path)], check=False)
     elif sys.platform == "darwin":
         subprocess.run(["open", str(path)], check=False)

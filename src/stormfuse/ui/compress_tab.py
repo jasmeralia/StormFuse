@@ -28,6 +28,7 @@ from stormfuse.ffmpeg.probe import FileProbe, probe
 from stormfuse.jobs.base import JobError, JobResult
 from stormfuse.jobs.probe import ProbeFilesJob
 from stormfuse.ui.error_dialogs import build_job_failure_guidance, show_diagnostic_dialog
+from stormfuse.ui.settings import KEY_COMPRESS_IN, KEY_COMPRESS_OUT, last_dir, remember_dir
 from stormfuse.ui.widgets.size_slider import SizeSlider
 
 
@@ -189,20 +190,32 @@ class CompressTab(QWidget):
     # ------------------------------------------------------------------ #
 
     def _browse_input(self) -> None:
+        default_dir = ""
+        if self._input_field.text().strip():
+            default_dir = str(Path(self._input_field.text().strip()).parent)
+        if not default_dir:
+            default_dir = last_dir(KEY_COMPRESS_IN)
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select video", "", "Video files (*.mkv *.mp4);;All files (*)"
+            self,
+            "Select video",
+            default_dir,
+            "Video files (*.mkv *.mp4);;All files (*)",
         )
         if path:
+            remember_dir(KEY_COMPRESS_IN, str(Path(path).parent))
             self._set_input_path(Path(path))
 
     def _browse_output_folder(self) -> None:
         default_dir = self._out_folder.text().strip()
         if not default_dir and self._input_field.text().strip():
             default_dir = str(Path(self._input_field.text().strip()).parent)
+        if not default_dir:
+            default_dir = last_dir(KEY_COMPRESS_OUT)
 
         folder = QFileDialog.getExistingDirectory(self, "Output folder", default_dir)
         if folder:
             self._out_folder.setText(folder)
+            remember_dir(KEY_COMPRESS_OUT, folder)
 
     def _on_slider_changed(self, gb: float) -> None:
         del gb

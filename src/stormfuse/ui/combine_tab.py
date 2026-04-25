@@ -28,6 +28,7 @@ from stormfuse.ffmpeg.probe import FileProbe, probe
 from stormfuse.jobs.base import JobError, JobResult
 from stormfuse.jobs.probe import ProbeFilesJob
 from stormfuse.ui.error_dialogs import build_job_failure_guidance, show_diagnostic_dialog
+from stormfuse.ui.settings import KEY_COMBINE_ADD, KEY_COMBINE_OUT, last_dir, remember_dir
 from stormfuse.ui.widgets.file_list import FileListWidget
 
 
@@ -46,13 +47,13 @@ class CombineTab(QWidget):
         super().__init__(parent)
         self._encoder: EncoderChoice = EncoderChoice.LIBX264
         self._probe_file = probe_file or self._default_probe_file
-        self._probe_request_id = 0
         self._probe_jobs: list[ProbeFilesJob] = []
         self._probe_threads: list[QThread] = []
 
         # --- File list ---
         self._file_list = FileListWidget()
         self._file_list.files_changed.connect(self._on_files_changed)
+        self._file_list.files_added.connect(self._on_files_added)
 
         add_btn = QPushButton("Add Files…")
         add_btn.clicked.connect(self._add_files)
@@ -214,44 +215,50 @@ class CombineTab(QWidget):
     # ------------------------------------------------------------------ #
 
     def _add_files(self) -> None:
-        paths, _ = QFileDialog.getOpenFileNames(
+        default_dir = ""
+        current_paths = self._file_list.all_paths()
+        if current_paths:
+            default_dir = str(current_paths[0].parent)
+        if not default_dir:
+            default_dir = last_dir(KEY_COMBINE_ADD)
+        selected_paths, _ = QFileDialog.getOpenFileNames(
             self,
             "Add video files",
-            "",
+            default_dir,
             "Video files (*.mkv *.mp4);;All files (*)",
         )
-        if paths:
-            self._file_list.add_paths([Path(p) for p in paths])
+        if selected_paths:
+            remember_dir(KEY_COMBINE_ADD, str(Path(selected_paths[0]).parent))
+            self._file_list.add_paths([Path(path) for path in selected_paths])
 
     def _browse_output_folder(self) -> None:
         default_dir = self._out_folder.text().strip()
         if not default_dir:
             paths = self._file_list.all_paths()
-            default_dir = str(paths[0].parent) if paths else ""
+            default_dir = str(paths[0].parent) if paths else last_dir(KEY_COMBINE_OUT)
 
         folder = QFileDialog.getExistingDirectory(self, "Output folder", default_dir)
         if folder:
             self._out_folder.setText(folder)
+            remember_dir(KEY_COMBINE_OUT, folder)
 
     def _on_files_changed(self) -> None:
         self._update_default_output()
         self._refresh_preview()
         self._run_btn.setEnabled(self._can_run())
 
+    @pyqtSlot(list)
+    def _on_files_added(self, new_paths: list[Path]) -> None:
+        self._update_default_output()
+        self._refresh_preview()
+        self._run_btn.setEnabled(self._can_run())
+        if new_paths:
+            self._start_probe_job(new_paths)
+
     def set_probe_results(self, probes: list[FileProbe]) -> None:
         probes_by_path = {probe.path: probe for probe in probes}
         self._file_list.set_probe_results(probes_by_path)
-
-        if len(probes) < 2:
-            self._set_strategy_state(
-                summary="Add at least two files to preview the concat strategy.",
-                color="#475569",
-                details="",
-            )
-            return
-
-        plan = make_concat_plan(probes)
-        self._apply_plan(plan)
+        self._refresh_preview()
 
     def _update_default_output(self) -> None:
         paths = self._file_list.all_paths()
@@ -298,8 +305,6 @@ class CombineTab(QWidget):
 
     def _refresh_preview(self) -> None:
         paths = self._file_list.all_paths()
-        self._cancel_pending_probe_jobs()
-        self._file_list.set_probe_results({})
         if not paths:
             self._set_strategy_state(
                 summary="Add files to begin.",
@@ -308,16 +313,28 @@ class CombineTab(QWidget):
             )
             return
 
-        self._probe_request_id += 1
-        request_id = self._probe_request_id
-        count = len(paths)
-        noun = "input" if count == 1 else "inputs"
-        self._set_strategy_state(
-            summary=f"Probing {count} {noun}…",
-            color="#475569",
-            details="",
-        )
-        self._start_probe_job(paths, request_id)
+        probes_by_path = self._file_list.cached_probes()
+        missing_paths = [path for path in paths if path not in probes_by_path]
+        if missing_paths:
+            count = len(missing_paths)
+            noun = "input" if count == 1 else "inputs"
+            self._set_strategy_state(
+                summary=f"Probing {count} {noun}…",
+                color="#475569",
+                details="",
+            )
+            return
+
+        if len(paths) < 2:
+            self._set_strategy_state(
+                summary="Add at least two files to preview the concat strategy.",
+                color="#475569",
+                details="",
+            )
+            return
+
+        probes = [probes_by_path[path] for path in paths]
+        self._apply_plan(make_concat_plan(probes))
 
     def _apply_plan(self, plan: ConcatPlan) -> None:
         if plan.strategy == ConcatStrategy.STREAM_COPY:
@@ -380,7 +397,7 @@ class CombineTab(QWidget):
             return None
         return Path(folder) / filename
 
-    def _start_probe_job(self, paths: list[Path], request_id: int) -> None:
+    def _start_probe_job(self, paths: list[Path]) -> None:
         thread = QThread(self)
         job = ProbeFilesJob(paths, self._probe_file)
         job.moveToThread(thread)
@@ -390,18 +407,10 @@ class CombineTab(QWidget):
 
         thread.started.connect(job.run)
         job.finished.connect(thread.quit)
-        job.probed.connect(
-            lambda probes, request_id=request_id: self._on_probe_results(request_id, probes)
-        )
-        job.failed.connect(
-            lambda error, request_id=request_id: self._on_probe_failed(request_id, error)
-        )
+        job.probed.connect(lambda probes, paths=list(paths): self._on_probe_results(paths, probes))
+        job.failed.connect(lambda error, paths=list(paths): self._on_probe_failed(paths, error))
         thread.finished.connect(lambda thread=thread, job=job: self._cleanup_probe_job(thread, job))
         thread.start()
-
-    def _cancel_pending_probe_jobs(self) -> None:
-        for job in list(self._probe_jobs):
-            job.cancel()
 
     def _cleanup_probe_job(self, thread: QThread, job: ProbeFilesJob) -> None:
         if job in self._probe_jobs:
@@ -411,13 +420,20 @@ class CombineTab(QWidget):
         job.deleteLater()
         thread.deleteLater()
 
-    def _on_probe_results(self, request_id: int, probes: list[FileProbe]) -> None:
-        if request_id != self._probe_request_id:
+    def _on_probe_results(self, expected_paths: list[Path], probes: list[FileProbe]) -> None:
+        current_paths = set(self._file_list.all_paths())
+        if not any(path in current_paths for path in expected_paths):
             return
-        self.set_probe_results(probes)
+        probes_by_path = self._file_list.cached_probes()
+        probes_by_path.update(
+            {probe.path: probe for probe in probes if probe.path in current_paths}
+        )
+        self._file_list.set_probe_results(probes_by_path)
+        self._refresh_preview()
 
-    def _on_probe_failed(self, request_id: int, error: JobError) -> None:
-        if request_id != self._probe_request_id:
+    def _on_probe_failed(self, expected_paths: list[Path], error: JobError) -> None:
+        current_paths = set(self._file_list.all_paths())
+        if not any(path in current_paths for path in expected_paths):
             return
         self._set_strategy_state(
             summary="Preview unavailable until inputs can be probed.",

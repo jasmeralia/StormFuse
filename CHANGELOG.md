@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-04-24
+
+### Added
+
+#### Crash & error handling (§9)
+- Centralized global crash hooks in `src/stormfuse/error_handling.py`: `sys.excepthook`, `threading.excepthook`, `qInstallMessageHandler`, SIGINT/SIGTERM signal handlers, and `faulthandler` writing to `LOG_DIR/fatal_errors.log`
+- `ExceptionHookingApplication` overrides `QApplication.notify` to forward swallowed Qt slot/event exceptions through the same diagnostic pipeline
+- `ffmpeg.runner` reader threads (stderr + progress) now log `ffmpeg.reader_crash` instead of dying silently on exception
+- New logging events: `app.unhandled`, `app.thread_unhandled`, `app.qt_message`, `app.signal`, `app.fault`, `ffmpeg.reader_crash`
+
+#### NVENC diagnostics (§5.3)
+- `detect_encoder` now logs `ffmpeg -hwaccels` output, the `-encoders` stdout excerpt, and the test-encode stderr tail so fallbacks to libx264 are explainable from the log alone
+- 10-second timeout on the NVENC test encode emits `nvenc.probe_timeout` instead of hanging app startup
+- `STORMFUSE_FORCE_ENCODER=nvenc|libx264` env var skips detection entirely and emits `nvenc.probe_skipped`
+
+#### UI persistence (§6.2, §6.3)
+- `QSettings`-backed last-used directory persistence for "Add Files…" and "Browse…" (output folder) on the Combine tab and "Browse…" (input) and "Browse…" (output folder) on the Compress tab
+
+### Changed
+
+#### File list (§6.2)
+- Reordering or removing files no longer re-probes everything: `FileListWidget` now caches probe results across reorder/remove and exposes a new `files_added` signal so only newly added paths are probed
+- Removed the doubled-text rendering on filenames by dropping the redundant `QListWidgetItem.setText` call — the row widget is the sole renderer
+
+#### Subprocess invocation (§7.7)
+- New `stormfuse.ffmpeg._subprocess.run`/`popen` wrappers always inject `CREATE_NO_WINDOW` on Windows; `runner.py`, `probe.py`, and `encoders.py` route through them, suppressing the terminal-window flashes that previously occurred during NVENC detection at app startup
+
+### Fixed
+
+- "Help > About" and the troubleshooting links now point at `github.com/jasmeralia/stormfuse` (was `winds-of-storm`)
+
 ## [1.0.3] - 2026-04-24
 
 ### Fixed

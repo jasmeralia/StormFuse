@@ -4,11 +4,16 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 from enum import Enum, auto
 from pathlib import Path
 
+from stormfuse.ffmpeg._subprocess import run
+
 log = logging.getLogger("ffmpeg.encoders")
+
+_PROBE_TIMEOUT_SEC = 10
 
 
 class EncoderChoice(Enum):
@@ -18,9 +23,29 @@ class EncoderChoice(Enum):
 
 def detect_encoder(ffmpeg_exe: Path) -> EncoderChoice:
     """Run the two-step NVENC probe (§5.3) and return the encoder to use."""
+    forced_choice = _forced_encoder_choice()
+    if forced_choice is not None:
+        log.info(
+            "Skipping encoder detection due to STORMFUSE_FORCE_ENCODER",
+            extra={
+                "event": "nvenc.probe_skipped",
+                "ctx": {
+                    "forced_encoder": _encoder_name(forced_choice),
+                    "env_var": "STORMFUSE_FORCE_ENCODER",
+                },
+            },
+        )
+        return forced_choice
+
+    return _detect_encoder_impl(ffmpeg_exe)
+
+
+def _detect_encoder_impl(ffmpeg_exe: Path) -> EncoderChoice:
+    _log_hwaccels(ffmpeg_exe)
+
     # Step 1: check if h264_nvenc appears in -encoders output
     try:
-        result = subprocess.run(
+        result = run(
             [str(ffmpeg_exe), "-hide_banner", "-encoders"],
             capture_output=True,
             text=True,
@@ -36,7 +61,20 @@ def detect_encoder(ffmpeg_exe: Path) -> EncoderChoice:
         )
         return EncoderChoice.LIBX264
 
-    if "h264_nvenc" not in result.stdout:
+    encoder_stdout = _output_text(result.stdout)
+    log.debug(
+        "NVENC probe encoder listing",
+        extra={
+            "event": "nvenc.probe",
+            "ctx": {
+                "step": "encoders",
+                "stdout_excerpt": encoder_stdout[:500],
+                "returncode": result.returncode,
+            },
+        },
+    )
+
+    if "h264_nvenc" not in encoder_stdout:
         log.info(
             "h264_nvenc not listed in ffmpeg encoders",
             extra={
@@ -62,11 +100,27 @@ def detect_encoder(ffmpeg_exe: Path) -> EncoderChoice:
         "-",
     ]
     try:
-        test_result = subprocess.run(
+        test_result = run(
             test_cmd,
             capture_output=True,
+            text=True,
             check=False,
+            timeout=_PROBE_TIMEOUT_SEC,
         )
+    except subprocess.TimeoutExpired as exc:
+        log.info(
+            "NVENC test encode timed out",
+            extra={
+                "event": "nvenc.probe_timeout",
+                "ctx": {
+                    "result": "libx264_fallback",
+                    "timeout_sec": _PROBE_TIMEOUT_SEC,
+                    "argv": test_cmd,
+                    "stderr_tail": _stderr_tail(getattr(exc, "stderr", "")),
+                },
+            },
+        )
+        return EncoderChoice.LIBX264
     except OSError as exc:
         log.info(
             "NVENC test encode failed (OS error)",
@@ -84,7 +138,7 @@ def detect_encoder(ffmpeg_exe: Path) -> EncoderChoice:
         )
         return EncoderChoice.NVENC
 
-    stderr_tail = test_result.stderr[-1000:].decode(errors="replace")
+    stderr_tail = _stderr_tail(test_result.stderr)
     log.info(
         "NVENC test encode failed",
         extra={
@@ -93,8 +147,8 @@ def detect_encoder(ffmpeg_exe: Path) -> EncoderChoice:
                 "result": "libx264_fallback",
                 "reason": "test encode non-zero exit",
                 "returncode": test_result.returncode,
+                "stderr_tail": stderr_tail,
             },
-            "ctx.stderr_tail": stderr_tail,
         },
     )
     return EncoderChoice.LIBX264
@@ -214,3 +268,76 @@ def normalize_video_args(choice: EncoderChoice) -> list[str]:
 def audio_args() -> list[str]:
     """Standard audio args: AAC 192k stereo 48 kHz (§5.2)."""
     return ["-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2"]
+
+
+def _forced_encoder_choice() -> EncoderChoice | None:
+    raw_value = os.environ.get("STORMFUSE_FORCE_ENCODER", "").strip().casefold()
+    if raw_value == "nvenc":
+        return EncoderChoice.NVENC
+    if raw_value == "libx264":
+        return EncoderChoice.LIBX264
+    if raw_value:
+        log.warning(
+            "Ignoring invalid STORMFUSE_FORCE_ENCODER value",
+            extra={
+                "event": "nvenc.probe",
+                "ctx": {"reason": "invalid override", "override": raw_value},
+            },
+        )
+    return None
+
+
+def _log_hwaccels(ffmpeg_exe: Path) -> None:
+    argv = [str(ffmpeg_exe), "-hide_banner", "-hwaccels"]
+    try:
+        result = run(
+            argv,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        log.info(
+            "Unable to inspect ffmpeg hwaccels",
+            extra={
+                "event": "nvenc.hwaccels",
+                "ctx": {"error": str(exc)},
+            },
+        )
+        return
+
+    stdout = _output_text(result.stdout)
+    stdout_lower = stdout.casefold()
+    listed = [line.strip() for line in stdout.splitlines() if line.strip()]
+    log.info(
+        "ffmpeg hwaccels inspected",
+        extra={
+            "event": "nvenc.hwaccels",
+            "ctx": {
+                "returncode": result.returncode,
+                "has_cuda": "cuda" in stdout_lower,
+                "mentions_nvenc": "nvenc" in stdout_lower,
+                "stdout_excerpt": stdout[:500],
+                "available": listed[-20:],
+            },
+        },
+    )
+
+
+def _stderr_tail(stderr: str | bytes | None) -> list[str]:
+    if stderr is None:
+        return []
+    text = _output_text(stderr)
+    return text.splitlines()[-20:]
+
+
+def _encoder_name(choice: EncoderChoice) -> str:
+    if choice == EncoderChoice.NVENC:
+        return "nvenc"
+    return "libx264"
+
+
+def _output_text(value: str | bytes) -> str:
+    if isinstance(value, bytes):
+        return value.decode(errors="replace")
+    return value

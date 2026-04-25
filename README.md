@@ -11,7 +11,7 @@ StormFuse is a Windows desktop app that wraps bundled `ffmpeg` and `ffprobe` to 
 
 ## Install
 
-1. Download the latest `StormFuse-Setup-<version>.exe` from [GitHub Releases](https://github.com/winds-of-storm/stormfuse/releases).
+1. Download the latest `StormFuse-Setup-<version>.exe` from [GitHub Releases](https://github.com/jasmeralia/stormfuse/releases).
 2. Run the installer.
 3. Choose the per-user install option if you do not want an elevation prompt. Per-user install does not require admin rights.
 4. Launch StormFuse from the Start Menu or desktop shortcut.

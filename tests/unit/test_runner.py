@@ -67,7 +67,7 @@ class TestRunFfmpeg:
 
         with (
             caplog.at_level(logging.INFO, logger="ffmpeg.runner"),
-            patch("stormfuse.ffmpeg.runner.subprocess.Popen", return_value=_make_mock_proc()),
+            patch("stormfuse.ffmpeg.runner.popen", return_value=_make_mock_proc()),
         ):
             job.run()
 
@@ -83,7 +83,7 @@ class TestRunFfmpeg:
             captured.append(list(args))
             return _make_mock_proc()
 
-        with patch("stormfuse.ffmpeg.runner.subprocess.Popen", side_effect=fake_popen):
+        with patch("stormfuse.ffmpeg.runner.popen", side_effect=fake_popen):
             run_ffmpeg(FAKE_FFMPEG, ["-i", "input.mkv", "output.mkv"])
 
         assert len(captured) == 1
@@ -95,21 +95,21 @@ class TestRunFfmpeg:
         assert "input.mkv" in argv
 
     def test_no_shell_true(self) -> None:
-        with patch("stormfuse.ffmpeg.runner.subprocess.Popen") as mock_popen:
+        with patch("stormfuse.ffmpeg.runner.popen") as mock_popen:
             mock_popen.return_value = _make_mock_proc()
             run_ffmpeg(FAKE_FFMPEG, [])
             _, kwargs = mock_popen.call_args
             assert not kwargs.get("shell", False)
 
     def test_returns_run_result(self) -> None:
-        with patch("stormfuse.ffmpeg.runner.subprocess.Popen") as mock_popen:
+        with patch("stormfuse.ffmpeg.runner.popen") as mock_popen:
             mock_popen.return_value = _make_mock_proc(returncode=0)
             result = run_ffmpeg(FAKE_FFMPEG, [])
         assert isinstance(result, RunResult)
         assert result.succeeded
 
     def test_nonzero_exit_not_succeeded(self) -> None:
-        with patch("stormfuse.ffmpeg.runner.subprocess.Popen") as mock_popen:
+        with patch("stormfuse.ffmpeg.runner.popen") as mock_popen:
             mock_popen.return_value = _make_mock_proc(returncode=1)
             result = run_ffmpeg(FAKE_FFMPEG, [])
         assert not result.succeeded
@@ -125,14 +125,14 @@ class TestRunFfmpeg:
         def noop_progress(ev: ProgressEvent) -> None:
             pass
 
-        with patch("stormfuse.ffmpeg.runner.subprocess.Popen", side_effect=fake_popen):
+        with patch("stormfuse.ffmpeg.runner.popen", side_effect=fake_popen):
             run_ffmpeg(FAKE_FFMPEG, [], on_progress=noop_progress)
 
         assert "-progress" in captured[0]
         assert "-nostats" in captured[0]
 
     def test_os_error_returns_failed_result(self) -> None:
-        with patch("stormfuse.ffmpeg.runner.subprocess.Popen", side_effect=OSError("no such file")):
+        with patch("stormfuse.ffmpeg.runner.popen", side_effect=OSError("no such file")):
             result = run_ffmpeg(FAKE_FFMPEG, [])
         assert not result.succeeded
         assert result.exit_code == -1
@@ -146,7 +146,7 @@ class TestRunFfmpeg:
 
         with (
             caplog.at_level(logging.INFO, logger="ffmpeg.runner"),
-            patch("stormfuse.ffmpeg.runner.subprocess.Popen", return_value=proc),
+            patch("stormfuse.ffmpeg.runner.popen", return_value=proc),
         ):
             result = run_ffmpeg(FAKE_FFMPEG, [], cancel_event=cancel_event)
 
@@ -192,7 +192,7 @@ class TestRunFfmpeg:
         with (
             caplog.at_level(logging.DEBUG, logger="ffmpeg.runner"),
             patch("stormfuse.ffmpeg.runner.tempfile.mkstemp", side_effect=fake_mkstemp),
-            patch("stormfuse.ffmpeg.runner.subprocess.Popen", side_effect=fake_popen),
+            patch("stormfuse.ffmpeg.runner.popen", side_effect=fake_popen),
         ):
             run_ffmpeg(
                 FAKE_FFMPEG,

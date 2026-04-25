@@ -50,7 +50,7 @@ def test_probe_logs_bound_job_id(caplog: pytest.LogCaptureFixture) -> None:
 
     with (
         caplog.at_level(logging.DEBUG, logger="ffmpeg.probe"),
-        patch("stormfuse.ffmpeg.probe.subprocess.run", return_value=result),
+        patch("stormfuse.ffmpeg.probe.run", return_value=result),
     ):
         job.run()
 
@@ -65,7 +65,7 @@ def test_probe_error_logs_job_id(caplog: pytest.LogCaptureFixture) -> None:
     with (
         caplog.at_level(logging.ERROR, logger="ffmpeg.probe"),
         patch(
-            "stormfuse.ffmpeg.probe.subprocess.run",
+            "stormfuse.ffmpeg.probe.run",
             return_value=MagicMock(returncode=1, stdout="", stderr="line 1\nline 2\n"),
         ),
         pytest.raises(ProbeError),

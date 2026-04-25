@@ -93,4 +93,4 @@ class AboutDialog(QDialog):
         return None
 
     def _open_github(self) -> None:
-        QDesktopServices.openUrl(QUrl("https://github.com/winds-of-storm/stormfuse"))
+        QDesktopServices.openUrl(QUrl("https://github.com/jasmeralia/stormfuse"))

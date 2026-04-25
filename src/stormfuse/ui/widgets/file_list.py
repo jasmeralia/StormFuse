@@ -26,6 +26,7 @@ class FileListWidget(QListWidget):
     """QListWidget with drag-reorder and drop-from-Explorer support."""
 
     files_changed = pyqtSignal()
+    files_added = pyqtSignal(list)
 
     def __init__(self, parent: object = None) -> None:
         super().__init__(parent)  # type: ignore[arg-type]
@@ -43,15 +44,26 @@ class FileListWidget(QListWidget):
         """Add *paths* to the list, avoiding duplicates."""
         existing = self.all_paths()
         seen = set(existing)
+        new_paths: list[Path] = []
         for p in paths:
             if p not in seen:
                 existing.append(p)
                 seen.add(p)
-        self._set_paths(self._sorted_by_name(existing))
+                new_paths.append(p)
+        if not new_paths:
+            return
+        self._set_paths(self._sorted_by_name(existing), emit_files_changed=False)
+        self.files_added.emit(new_paths)
+        self.files_changed.emit()
 
     def remove_selected(self) -> None:
-        for item in self.selectedItems():
+        selected = self.selectedItems()
+        if not selected:
+            return
+        for item in selected:
             self.takeItem(self.row(item))
+        self._sync_probe_cache()
+        self._refresh_labels()
         self.files_changed.emit()
 
     def move_up(self) -> None:
@@ -62,6 +74,8 @@ class FileListWidget(QListWidget):
             item = self.takeItem(row)
             self.insertItem(row - 1, item)
             self.setCurrentItem(item)
+        self._sync_probe_cache()
+        self._refresh_labels()
         self.files_changed.emit()
 
     def move_down(self) -> None:
@@ -72,6 +86,8 @@ class FileListWidget(QListWidget):
             item = self.takeItem(row)
             self.insertItem(row + 1, item)
             self.setCurrentItem(item)
+        self._sync_probe_cache()
+        self._refresh_labels()
         self.files_changed.emit()
 
     def clear_all(self) -> None:
@@ -81,6 +97,9 @@ class FileListWidget(QListWidget):
 
     def all_paths(self) -> list[Path]:
         return [self._path_for(i) for i in range(self.count())]
+
+    def cached_probes(self) -> dict[Path, FileProbe]:
+        return dict(self._probes_by_path)
 
     def set_probe_results(self, probes_by_path: dict[Path, FileProbe]) -> None:
         self._probes_by_path = {
@@ -127,6 +146,8 @@ class FileListWidget(QListWidget):
             event.acceptProposedAction()
         else:
             super().dropEvent(event)
+            self._sync_probe_cache()
+            self._refresh_labels()
             self.files_changed.emit()
 
     # ------------------------------------------------------------------ #
@@ -134,7 +155,7 @@ class FileListWidget(QListWidget):
     # ------------------------------------------------------------------ #
 
     def _append_path(self, path: Path) -> QListWidgetItem:
-        item = QListWidgetItem(path.name)
+        item = QListWidgetItem()
         item.setData(Qt.ItemDataRole.UserRole, str(path))
         item.setToolTip(str(path))
         self.addItem(item)
@@ -148,15 +169,14 @@ class FileListWidget(QListWidget):
     def _sorted_by_name(self, paths: list[Path]) -> list[Path]:
         return sorted(paths, key=lambda path: locale.strxfrm(path.name.casefold()))
 
-    def _set_paths(self, paths: list[Path]) -> None:
+    def _set_paths(self, paths: list[Path], *, emit_files_changed: bool = True) -> None:
         self.clear()
         for p in paths:
             self._append_path(p)
-        self._probes_by_path = {
-            path: self._probes_by_path[path] for path in paths if path in self._probes_by_path
-        }
+        self._sync_probe_cache()
         self._refresh_labels()
-        self.files_changed.emit()
+        if emit_files_changed:
+            self.files_changed.emit()
 
     def _make_badge(
         self,
@@ -196,6 +216,7 @@ class FileListWidget(QListWidget):
 
         name_label = QLabel(path.name)
         name_label.setObjectName("basenameLabel")
+        name_label.setTextFormat(Qt.TextFormat.PlainText)
         name_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         layout.addWidget(name_label, stretch=1)
 
@@ -241,13 +262,17 @@ class FileListWidget(QListWidget):
             assert item is not None
             p = self._path_for(row)
             if parse_filename_timestamp(p.name) is None:
-                item.setText(f"⚠ {p.name}")
                 item.setToolTip(
                     f"{p}\n(No recognizable timestamp — sort-by-timestamp keeps this row anchored)"
                 )
             else:
-                item.setText(p.name)
                 item.setToolTip(str(p))
             row_widget = self._build_row_widget(p)
             item.setSizeHint(row_widget.sizeHint())
             self.setItemWidget(item, row_widget)
+
+    def _sync_probe_cache(self) -> None:
+        paths = self.all_paths()
+        self._probes_by_path = {
+            path: self._probes_by_path[path] for path in paths if path in self._probes_by_path
+        }

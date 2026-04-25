@@ -68,10 +68,24 @@ def test_sort_by_timestamp_preserves_unparseable_positions(qtbot: QtBot, tmp_pat
     assert second_item is not None
     assert third_item is not None
     assert fourth_item is not None
-    assert first_item.text() == "⚠ alpha-no-ts.mkv"
-    assert second_item.text() == "delta_20260416-204926.mkv"
-    assert third_item.text() == "⚠ charlie-no-ts.mkv"
-    assert fourth_item.text() == "bravo_20260417-204926.mkv"
+    assert first_item.text() == ""
+    assert second_item.text() == ""
+    assert third_item.text() == ""
+    assert fourth_item.text() == ""
+
+    first_row = widget.itemWidget(first_item)
+    second_row = widget.itemWidget(second_item)
+    third_row = widget.itemWidget(third_item)
+    fourth_row = widget.itemWidget(fourth_item)
+
+    assert first_row is not None
+    assert second_row is not None
+    assert third_row is not None
+    assert fourth_row is not None
+    assert first_row.findChild(QLabel, "basenameLabel").text() == "alpha-no-ts.mkv"  # type: ignore[union-attr]
+    assert second_row.findChild(QLabel, "basenameLabel").text() == "delta_20260416-204926.mkv"  # type: ignore[union-attr]
+    assert third_row.findChild(QLabel, "basenameLabel").text() == "charlie-no-ts.mkv"  # type: ignore[union-attr]
+    assert fourth_row.findChild(QLabel, "basenameLabel").text() == "bravo_20260417-204926.mkv"  # type: ignore[union-attr]
 
 
 def test_row_widget_shows_timestamp_and_probe_badges(qtbot: QtBot, tmp_path: Path) -> None:

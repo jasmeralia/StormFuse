@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import json
 import logging
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from stormfuse.ffmpeg._subprocess import run
 from stormfuse.logging_setup import current_job_id
 
 log = logging.getLogger("ffmpeg.probe")
@@ -81,7 +81,7 @@ def probe(ffprobe_exe: Path, path: Path, *, job_id: str | None = None) -> FilePr
     cmd = [str(ffprobe_exe), *_FFPROBE_FLAGS, "--", str(path)]
 
     try:
-        result = subprocess.run(
+        result = run(
             cmd,
             capture_output=True,
             text=True,
@@ -100,7 +100,8 @@ def probe(ffprobe_exe: Path, path: Path, *, job_id: str | None = None) -> FilePr
         raise ProbeError(path, stderr_tail) from exc
 
     if result.returncode != 0:
-        stderr_tail = result.stderr[-2000:]
+        stderr_text = result.stderr if isinstance(result.stderr, str) else result.stderr.decode()
+        stderr_tail = stderr_text[-2000:]
         log.error(
             "ffprobe exited non-zero",
             extra=_log_extra(
@@ -115,7 +116,8 @@ def probe(ffprobe_exe: Path, path: Path, *, job_id: str | None = None) -> FilePr
         )
         raise ProbeError(path, stderr_tail)
 
-    data: dict[str, Any] = json.loads(result.stdout)
+    stdout_text = result.stdout if isinstance(result.stdout, str) else result.stdout.decode()
+    data: dict[str, Any] = json.loads(stdout_text)
     streams: list[dict[str, Any]] = data.get("streams", [])
     fmt: dict[str, Any] = data.get("format", {})
 

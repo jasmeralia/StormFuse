@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.15] - 2026-04-25
+
+### Changed
+
+#### Log upload (§9)
+- Switched to a two-step S3 presigned URL upload protocol to bypass API Gateway's 10 MB payload limit: `POST /logs/upload` returns per-file presigned PUT URLs; client gzip-compresses and uploads each file directly to S3; `POST /logs/complete` triggers the SES notification email
+- Log files are now gzip-compressed (level 6) before upload, significantly reducing transfer size for repetitive text logs
+- Each submission is isolated under a UUID prefix in S3 (`s3://bucket/{uuid}/`); the notification email includes the UUID and retrieval instructions
+- `ffmpeg-*.log` FFREPORT files are excluded from uploads — verbose decoder traces can be hundreds of MB and are not needed for most diagnostics
+- Added `infrastructure/download_logs.sh`: given an upload UUID, downloads all files from S3, decompresses them locally, and deletes them from S3 after successful retrieval
+
 ## [1.0.14] - 2026-04-25
 
 ### Added

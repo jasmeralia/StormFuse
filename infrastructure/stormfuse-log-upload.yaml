@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: >
   StormFuse - Log Upload Backend.
   Deploys Lambda, API Gateway (HTTP API) with custom domain
-  stormfuse.jasmer.tools, and SES email notifications.
+  stormfuse.jasmer.tools, S3 log storage, and SES email notifications.
 
 Parameters:
   DomainName:
@@ -26,7 +26,33 @@ Parameters:
     Default: morgan@windsofstorm.net
     Description: Email address used as the SES sender (must be verified)
 
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+    Description: Days before uploaded log files are automatically deleted from S3
+
 Resources:
+  # ── S3 Bucket for log storage ──────────────────────────────────────
+  LogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      # Account-scoped name to avoid global conflicts
+      BucketName: !Sub stormfuse-logs-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldLogs
+            Status: Enabled
+            ExpirationInDays: !Ref LogRetentionDays
+          - Id: AbortIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+
   # ── IAM Role for Lambda ────────────────────────────────────────────
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -51,6 +77,19 @@ Resources:
                   - ses:SendEmail
                   - ses:SendRawEmail
                 Resource: '*'
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:DeleteObject
+                Resource:
+                  - !GetAtt LogsBucket.Arn
+                  - !Sub '${LogsBucket.Arn}/*'
 
   # ── Lambda Function ────────────────────────────────────────────────
   LogUploadFunction:
@@ -64,6 +103,7 @@ Resources:
       MemorySize: 256
       Environment:
         Variables:
+          BUCKET_NAME: !Ref LogsBucket
           NOTIFY_EMAIL: !Ref NotifyEmail
           SENDER_EMAIL: !Ref SenderEmail
       Code:
@@ -99,12 +139,20 @@ Resources:
       IntegrationUri: !GetAtt LogUploadFunction.Arn
       PayloadFormatVersion: '2.0'
 
-  # POST /logs/upload route
+  # POST /logs/upload — init, returns presigned S3 PUT URLs
   LogUploadRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref HttpApi
       RouteKey: POST /logs/upload
+      Target: !Sub integrations/${HttpApiIntegration}
+
+  # POST /logs/complete — signal completion, triggers email
+  LogsCompleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /logs/complete
       Target: !Sub integrations/${HttpApiIntegration}
 
   # Default stage with auto-deploy
@@ -148,8 +196,8 @@ Outputs:
     Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
 
   CustomDomainUrl:
-    Description: Custom domain URL for the log upload endpoint
-    Value: !Sub https://${DomainName}/logs/upload
+    Description: Custom domain base URL
+    Value: !Sub https://${DomainName}
 
   CustomDomainTarget:
     Description: CNAME target for the custom domain (create DNS record manually)
@@ -162,3 +210,7 @@ Outputs:
   LambdaFunctionArn:
     Description: ARN of the log upload Lambda function
     Value: !GetAtt LogUploadFunction.Arn
+
+  LogsBucketName:
+    Description: S3 bucket name for log file storage
+    Value: !Ref LogsBucket

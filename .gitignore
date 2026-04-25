@@ -49,3 +49,6 @@ Thumbs.db
 # NSIS build output
 *.exe
 !build/installer/
+
+# Infrastructure build artifacts
+infrastructure/lambda.zip

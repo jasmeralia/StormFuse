@@ -69,7 +69,7 @@ class CombineTab(QWidget):
         sort_ts_btn = QPushButton("Sort by timestamp")
         sort_ts_btn.clicked.connect(self._file_list.sort_by_timestamp)
         clear_btn = QPushButton("Clear")
-        clear_btn.clicked.connect(self._file_list.clear_all)
+        clear_btn.clicked.connect(self._on_clear)
 
         btn_col = QVBoxLayout()
         for b in (add_btn, remove_btn, up_btn, down_btn, sort_name_btn, sort_ts_btn, clear_btn):
@@ -247,6 +247,10 @@ class CombineTab(QWidget):
         if folder:
             self._out_folder.setText(folder)
             remember_dir(KEY_COMBINE_OUT, folder)
+
+    def _on_clear(self) -> None:
+        self._file_list.clear_all()
+        self._out_filename.clear()
 
     def _on_files_changed(self) -> None:
         self._update_default_output()

@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# Deploy the StormFuse log upload backend.
+#
+# Prerequisites:
+#   1. AWS CLI configured with credentials
+#   2. ACM certificate for stormfuse.jasmer.tools (note the ARN)
+#   3. SES verified sender identity for morgan@windsofstorm.net
+#
+# Usage:
+#   ./deploy.sh <certificate-arn> [aws-profile]
+#
+# Arguments:
+#   certificate-arn  ARN of the ACM certificate for stormfuse.jasmer.tools
+#   aws-profile      Optional AWS CLI profile name
+
+set -euo pipefail
+
+STACK_NAME="stormfuse-log-upload"
+TEMPLATE="stormfuse-log-upload.yaml"
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <certificate-arn> [aws-profile]"
+    echo ""
+    echo "Example:"
+    echo "  $0 arn:aws:acm:us-east-1:123456789:certificate/abc-123 default"
+    exit 1
+fi
+
+CERTIFICATE_ARN="$1"
+AWS_PROFILE="${2:-}"
+
+AWS_REGION="$(cut -d: -f4 <<<"$CERTIFICATE_ARN")"
+if [ -z "$AWS_REGION" ]; then
+    echo "Could not parse region from certificate ARN."
+    exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+AWS_CLI=(aws)
+AWS_CLI+=(--region "$AWS_REGION")
+if [ -n "$AWS_PROFILE" ]; then
+    AWS_CLI+=(--profile "$AWS_PROFILE")
+fi
+
+echo "Deploying stack: ${STACK_NAME}"
+echo "  Certificate: ${CERTIFICATE_ARN}"
+echo "  Region: ${AWS_REGION}"
+if [ -n "$AWS_PROFILE" ]; then
+    echo "  Profile: ${AWS_PROFILE}"
+fi
+echo ""
+
+# ── 1. Deploy log-upload stack ─────────────────────────────────────────────
+
+"${AWS_CLI[@]}" cloudformation deploy \
+    --template-file "${TEMPLATE}" \
+    --stack-name "${STACK_NAME}" \
+    --capabilities CAPABILITY_NAMED_IAM \
+    --parameter-overrides \
+        CertificateArn="${CERTIFICATE_ARN}" \
+    --tags \
+        Project=StormFuse \
+        Environment=Production
+
+echo ""
+echo "Waiting for ${STACK_NAME} to finish..."
+set +e
+"${AWS_CLI[@]}" cloudformation wait stack-create-complete --stack-name "${STACK_NAME}" 2>/dev/null
+WAIT_STATUS=$?
+if [ "$WAIT_STATUS" -ne 0 ]; then
+    "${AWS_CLI[@]}" cloudformation wait stack-update-complete --stack-name "${STACK_NAME}" 2>/dev/null
+    WAIT_STATUS=$?
+fi
+set -e
+
+if [ "$WAIT_STATUS" -ne 0 ]; then
+    echo "Stack ${STACK_NAME} failed to deploy. Recent events:"
+    "${AWS_CLI[@]}" cloudformation describe-stack-events \
+        --stack-name "${STACK_NAME}" \
+        --max-items 15 \
+        --output table
+    exit 1
+fi
+
+echo "${STACK_NAME} outputs:"
+"${AWS_CLI[@]}" cloudformation describe-stacks \
+    --stack-name "${STACK_NAME}" \
+    --query 'Stacks[0].Outputs' \
+    --output table
+
+echo ""
+echo "DNS CNAME to create:"
+"${AWS_CLI[@]}" cloudformation describe-stacks \
+    --stack-name "${STACK_NAME}" \
+    --query "Stacks[0].Outputs[?OutputKey==\`CustomDomainTarget\`].OutputValue" \
+    --output text
+
+# ── 2. Deploy Lambda function code ─────────────────────────────────────────
+
+echo ""
+echo "Deploying Lambda function code..."
+
+LAMBDA_FUNCTION_ARN="$("${AWS_CLI[@]}" cloudformation describe-stacks \
+    --stack-name "${STACK_NAME}" \
+    --query "Stacks[0].Outputs[?OutputKey==\`LambdaFunctionArn\`].OutputValue" \
+    --output text)"
+
+(cd "${SCRIPT_DIR}" && zip -j lambda.zip lambda_function.py)
+
+"${AWS_CLI[@]}" lambda update-function-code \
+    --function-name "${LAMBDA_FUNCTION_ARN}" \
+    --zip-file "fileb://${SCRIPT_DIR}/lambda.zip"
+
+echo "Lambda function code updated."
+
+# ── 3. Next steps ──────────────────────────────────────────────────────────
+
+echo ""
+echo "Next steps:"
+echo "  1. Create the DNS CNAME shown above for stormfuse.jasmer.tools"
+echo "  2. Verify SES sender identity for morgan@windsofstorm.net"
+echo "  3. Test the endpoint: curl -X POST https://stormfuse.jasmer.tools/logs/upload"

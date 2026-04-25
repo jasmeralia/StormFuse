@@ -5,10 +5,10 @@ import os
 from pathlib import Path
 
 APP_NAME = "StormFuse"
-APP_VERSION = "1.0.13"
+APP_VERSION = "1.0.14"
 ORG_NAME = "Winds of Storm"
 LOG_UPLOAD_ENDPOINT = "https://stormfuse.jasmer.tools/logs/upload"
-LOG_UPLOAD_ENABLED = False
+LOG_UPLOAD_ENABLED = True
 AUTO_CHECK_UPDATES = True
 ALLOW_PRERELEASE_UPDATES = False
 DEBUG_FFMPEG_LOGGING = False

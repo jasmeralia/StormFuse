@@ -42,6 +42,9 @@ lint:
 	$(PY) -m ruff check src/ tests/
 	$(PY) -m mypy src/stormfuse/
 	$(PY) -m pylint src/stormfuse/ --rcfile=.pylintrc
+ifneq ($(OS),Windows_NT)
+	find infrastructure/ -name "*.sh" -exec shellcheck {} +
+endif
 
 lintfix:
 	$(PY) -m ruff format src/ tests/

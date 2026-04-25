@@ -179,7 +179,9 @@ class MainWindow(QMainWindow):
         assert exit_action is not None
         exit_action.triggered.connect(self.close)
 
-        settings_action = file_menu.addAction("Settings...")
+        settings_menu = bar.addMenu("Settings")
+        assert settings_menu is not None
+        settings_action = settings_menu.addAction("Edit Settings...")
         assert settings_action is not None
         settings_action.triggered.connect(self._show_settings)
 
@@ -202,7 +204,7 @@ class MainWindow(QMainWindow):
         assert logs_action is not None
         logs_action.triggered.connect(open_log_dir)
 
-        send_logs_action = help_menu.addAction("Send Logs...")
+        send_logs_action = help_menu.addAction("Send Logs to Jas")
         assert send_logs_action is not None
         send_logs_action.triggered.connect(
             lambda: show_log_submit_dialog(self, encoder=self._encoder)

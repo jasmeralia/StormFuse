@@ -142,7 +142,7 @@ def test_help_menu_includes_send_logs_action(qtbot: QtBot, tmp_path: Path) -> No
         "Check for Updates",
         "About",
         "Open Logs",
-        "Send Logs...",
+        "Send Logs to Jas",
         "Clear Log Files",
     ]
 
@@ -156,13 +156,13 @@ def test_file_menu_includes_settings_action(qtbot: QtBot, tmp_path: Path) -> Non
     qtbot.addWidget(window)
     window.show()
 
-    file_menu = next(
+    settings_menu = next(
         action.menu()
         for action in window.menuBar().actions()
-        if action.text() == "File" and isinstance(action.menu(), QMenu)
+        if action.text() == "Settings" and isinstance(action.menu(), QMenu)
     )
 
-    assert [action.text() for action in file_menu.actions()] == ["Exit", "Settings..."]
+    assert [action.text() for action in settings_menu.actions()] == ["Edit Settings..."]
 
 
 def test_settings_values_persist_and_reconfigure_debug_logging(

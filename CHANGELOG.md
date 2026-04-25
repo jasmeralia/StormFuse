@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.14] - 2026-04-25
+
+### Added
+
+#### Log upload backend (§9)
+- Added `infrastructure/` directory with CloudFormation template, Lambda function, and deploy script for the StormFuse log upload backend (`stormfuse.jasmer.tools`)
+- Shell scripts in `infrastructure/` are now linted via `shellcheck` as part of `make lint` (non-Windows only)
+
+### Changed
+
+#### Menus (§5)
+- Moved Settings from `File > Settings...` to a dedicated `Settings > Edit Settings...` top-level menu
+- Renamed `Help > Send Logs...` to `Help > Send Logs to Jas`
+- Combine tab Clear button now also clears the output filename field
+
+#### Log upload (§9)
+- Enabled log upload (`LOG_UPLOAD_ENABLED = True`); endpoint is `https://stormfuse.jasmer.tools/logs/upload`
+
 ## [1.0.13] - 2026-04-25
 
 ### Fixed

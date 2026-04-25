@@ -19,6 +19,12 @@ def test_ci_workflow_uses_make_targets() -> None:
     assert "ruff check" not in workflow
     assert "mypy src/stormfuse/" not in workflow
     assert "pytest tests/unit/" not in workflow
+    assert "actions/checkout@v6" in workflow
+    assert "actions/setup-python@v6" in workflow
+    assert "actions/upload-artifact@v6" in workflow
+    assert "codecov/codecov-action@v6" in workflow
+    assert "@v4" not in workflow
+    assert "@v5" not in workflow
 
 
 def test_release_workflow_uses_make_targets_on_windows() -> None:
@@ -26,8 +32,14 @@ def test_release_workflow_uses_make_targets_on_windows() -> None:
 
     assert "TAG_NAME" in workflow
     assert "refs/tags/${{ env.TAG_NAME }}" in workflow
-    assert "actions/download-artifact@v4" in workflow
-    assert "softprops/action-gh-release@v2" in workflow
+    assert "actions/checkout@v6" in workflow
+    assert "actions/setup-python@v6" in workflow
+    assert "actions/upload-artifact@v6" in workflow
+    assert "actions/download-artifact@v6" in workflow
+    assert "codecov/codecov-action@v6" in workflow
+    assert "softprops/action-gh-release@v3" in workflow
+    assert "@v4" not in workflow
+    assert "@v5" not in workflow
     assert workflow.count("run: make generate-third-party") == 2
     assert "Ensure NSIS" in workflow
     assert "GITHUB_PATH" in workflow

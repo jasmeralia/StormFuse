@@ -15,6 +15,7 @@ env:
   TAG_NAME: ${{ inputs.tag || github.ref_name }}
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
@@ -157,11 +158,9 @@ jobs:
           ref: refs/tags/${{ env.TAG_NAME }}
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v7
-        with:
-          name: StormFuse-installer
-          path: .
-          merge-multiple: true
+        run: gh run download "$GITHUB_RUN_ID" --name StormFuse-installer --dir .
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: List release assets
         run: find . -name "StormFuse-Setup-*.exe" -print

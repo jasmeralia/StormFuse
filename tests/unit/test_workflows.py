@@ -35,9 +35,11 @@ def test_release_workflow_uses_make_targets_on_windows() -> None:
     assert "actions/checkout@v6" in workflow
     assert "actions/setup-python@v6" in workflow
     assert "actions/upload-artifact@v7" in workflow
-    assert "actions/download-artifact@v7" in workflow
     assert "codecov/codecov-action@v6" in workflow
     assert "softprops/action-gh-release@v3" in workflow
+    assert 'gh run download "$GITHUB_RUN_ID" --name StormFuse-installer --dir .' in workflow
+    assert "actions: read" in workflow
+    assert "actions/download-artifact" not in workflow
     assert "@v4" not in workflow
     assert "@v5" not in workflow
     assert workflow.count("run: make generate-third-party") == 2

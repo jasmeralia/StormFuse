@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 import sys
 
-from PyQt6.QtCore import QEvent, QObject
+from PyQt6.QtCore import QEvent, QObject, QTimer
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication
 
@@ -19,6 +19,7 @@ from stormfuse.error_handling import (
     install_signal_hooks,
     install_sys_hook,
     install_thread_hook,
+    snapshot_previous_fatal_log,
 )
 from stormfuse.ffmpeg._subprocess import configure_debug_logging
 from stormfuse.ffmpeg.encoders import EncoderChoice, detect_encoder
@@ -73,6 +74,7 @@ def run_app() -> int:
 
     install_sys_hook(_show_unhandled_error)
     install_thread_hook()
+    previous_crash = snapshot_previous_fatal_log()
     enable_fault_handler()
 
     app = ExceptionHookingApplication(sys.argv)
@@ -139,6 +141,41 @@ def run_app() -> int:
     encoder = detect_encoder(ffmpeg_exe)
     window = MainWindow(ffmpeg_exe, ffprobe_exe, encoder, check_updates_on_startup=True)
     window.show()
+    if previous_crash is not None:
+        log.warning(
+            "Previous fatal crash detected",
+            extra={
+                "event": "app.previous_crash",
+                "ctx": {
+                    "path": str(previous_crash.path),
+                    "truncated": previous_crash.truncated,
+                },
+            },
+        )
+        next_step = (
+            "Copy or send the diagnostic bundle, then retry the last action. "
+            f"The previous fatal log was saved at {previous_crash.path}."
+        )
+        if previous_crash.truncated:
+            next_step += (
+                " The fatal log appears incomplete, so the latest session log is included too."
+            )
+        QTimer.singleShot(
+            0,
+            lambda: show_diagnostic_dialog(
+                window,
+                title="StormFuse — Previous Crash Detected",
+                message="StormFuse closed unexpectedly during the previous run.",
+                event="app.previous_crash",
+                stderr_tail=previous_crash.content,
+                encoder=encoder,
+                guidance=DiagnosticGuidance(
+                    summary="StormFuse closed unexpectedly during the previous run.",
+                    why="Windows reported a fatal native crash.",
+                    next_step=next_step,
+                ),
+            ),
+        )
 
     exit_code = app.exec()
 

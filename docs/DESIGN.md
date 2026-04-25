@@ -222,7 +222,9 @@ At application startup, a single probe runs:
 
 1. `ffmpeg -hide_banner -encoders` is parsed for `h264_nvenc`.
 2. If present, a **tiny 1-frame test encode** is run:
-   `ffmpeg -f lavfi -i color=c=black:s=64x64:d=0.05 -c:v h264_nvenc -f null -`
+   `ffmpeg -f lavfi -i color=c=black:s=256x256:d=0.05 -c:v h264_nvenc -f null -`
+   If the driver reports a minimum frame-dimension error, StormFuse retries once
+   with `320x240`. The exact argv and stderr tail are logged.
 3. If exit code 0, the app state is `encoder = NVENC_AVAILABLE`.
 4. Otherwise `encoder = LIBX264_FALLBACK`. The status bar shows this plainly.
    The fallback reason (missing encoder / runtime error / stderr tail) is logged
@@ -260,9 +262,9 @@ and enables Cancel. No queue, no parallelism — this is intentional.
 ### 6.1 Main window
 
 - `QMainWindow` titled "StormFuse".
-- Menu bar: **File** (Exit), **View** (System Default, Light Mode, Dark Mode),
-  **Help** (Check for Updates, About, Enable Debug ffmpeg Logs, Open Logs,
-  Send Logs..., Clear Log Files).
+- Menu bar: **File** (Exit, Settings), **View** (System Default, Light Mode,
+  Dark Mode), **Help** (Check for Updates, About, Open Logs, Send Logs...,
+  Clear Log Files).
 - Central widget: `QTabWidget` with two tabs, "Combine" and "Compress".
 - Status bar: shows encoder badge (`NVENC` / `libx264`), current job state
   (`Idle` / `Running: <phase>` / `Cancelling`), and elapsed/ETA when running.
@@ -293,8 +295,16 @@ and enables Cancel. No queue, no parallelism — this is intentional.
 - Output filename + output folder browser.
 - **Run** / **Cancel** / `QProgressBar`.
 
-### 6.4 Help menu actions
+### 6.4 Settings and Help actions
 
+- **Settings > Diagnostics > Enable debug ffmpeg logs** — persisted boolean
+  preference (default off). When enabled, ffmpeg/ffprobe subprocesses launched
+  for a job receive an `FFREPORT` environment variable that writes a per-job
+  report into `LOG_DIR` using `ffmpeg-<job_id>.log` or `ffprobe-<job_id>.log`.
+  The `FFREPORT` value quotes the full path so Windows paths with spaces are
+  preserved correctly.
+- **Settings > Updates** — controls whether StormFuse checks for updates at
+  startup and whether beta/prerelease releases are included.
 - **Check for Updates** — queries the GitHub Releases API for `jasmeralia/StormFuse`,
   ignores draft releases, defaults to stable-only updates unless the saved
   prerelease preference is enabled, and opens a modal update dialog when a newer
@@ -304,11 +314,6 @@ and enables Cancel. No queue, no parallelism — this is intentional.
   directory, validates the file before launch, then exits StormFuse after
   launching the installer detached.
 - **About** — §2.4 dialog.
-- **Enable Debug ffmpeg Logs** — persisted boolean preference (default off).
-  When enabled, ffmpeg/ffprobe subprocesses launched for a job receive an
-  `FFREPORT` environment variable that writes a per-job report into `LOG_DIR`
-  using `ffmpeg-<job_id>.log` or `ffprobe-<job_id>.log`. The `FFREPORT` value
-  quotes the full path so Windows paths with spaces are preserved correctly.
 - **Open Logs** — launches Explorer at `%LOCALAPPDATA%\StormFuse\logs\` via
   `subprocess.run(["explorer.exe", str(logs_dir)])`. On non-Windows (dev machines),
   falls back to `xdg-open` / `open` so the feature is at least testable from dev.
@@ -503,6 +508,8 @@ handler pair to keep them in lockstep.
 | `app.qt_message` | DEBUG / INFO / WARNING / ERROR / CRITICAL | Qt runtime messages routed through the installed message handler |
 | `app.signal` | INFO | SIGINT / SIGTERM received; app is shutting down gracefully |
 | `app.fault` | INFO | faulthandler enabled and writing native crash dumps to `fatal_errors.log` |
+| `app.previous_crash` | WARNING / dialog | startup detected a fatal crash log from the previous run |
+| `nvenc.ffmpeg_version` | INFO | ffmpeg version inspected during NVENC detection |
 | `nvenc.probe` | INFO | NVENC detection result incl. reason on fallback |
 | `nvenc.probe_skipped` | INFO | encoder forced via `STORMFUSE_FORCE_ENCODER` |
 | `nvenc.probe_timeout` | INFO | NVENC test encode timed out and fell back |
@@ -653,6 +660,7 @@ Phase 2 — NSIS (`build/installer/stormfuse.nsi`):
 - Installs under `%ProgramFiles%\StormFuse` by default; per-user install supported
   via the NSIS `MultiUser` plugin.
 - Creates Start Menu shortcut, optional Desktop shortcut.
+- Offers to launch StormFuse from the finish page after installation.
 - Writes `HKLM\Software\StormFuse` with `Version` and `InstallDir`.
 - Registers Add/Remove Programs entry with publisher "Winds of Storm".
 - Includes a license page that shows `LICENSE` (GPL v3).

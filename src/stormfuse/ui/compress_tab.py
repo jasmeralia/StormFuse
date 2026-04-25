@@ -25,7 +25,7 @@ from stormfuse.ffmpeg.encoders import EncoderChoice
 from stormfuse.ffmpeg.locator import ffprobe_path
 from stormfuse.ffmpeg.probe import FileProbe, probe
 from stormfuse.jobs.base import JobError, JobResult
-from stormfuse.jobs.probe import ProbeFilesJob
+from stormfuse.jobs.probe import ProbeFilesJob, ProbeFilesResult
 from stormfuse.ui.error_dialogs import build_job_failure_guidance, show_diagnostic_dialog
 from stormfuse.ui.settings import KEY_COMPRESS_IN, KEY_COMPRESS_OUT, last_dir, remember_dir
 from stormfuse.ui.theme import show_warning_message
@@ -51,6 +51,7 @@ class CompressTab(QWidget):
         self._probe_request_id = 0
         self._probe_jobs: list[ProbeFilesJob] = []
         self._probe_threads: list[QThread] = []
+        self._probe_request_by_job_id: dict[str, int] = {}
 
         # --- Input ---
         self._input_field = QLineEdit()
@@ -308,20 +309,17 @@ class CompressTab(QWidget):
         request_id = self._probe_request_id
 
         thread = QThread(self)
-        job = ProbeFilesJob([path], self._probe_file)
+        job = ProbeFilesJob([path], self._probe_file, request_id=request_id)
         job.moveToThread(thread)
 
         self._probe_threads.append(thread)
         self._probe_jobs.append(job)
+        self._probe_request_by_job_id[job.job_id] = request_id
 
         thread.started.connect(job.run)
         job.finished.connect(thread.quit)
-        job.probed.connect(
-            lambda probes, request_id=request_id: self._on_probe_results(request_id, probes)
-        )
-        job.failed.connect(
-            lambda error, request_id=request_id: self._on_probe_failed(request_id, error)
-        )
+        job.probed.connect(self._on_probe_results)
+        job.failed.connect(self._on_probe_failed)
         thread.finished.connect(lambda thread=thread, job=job: self._cleanup_probe_job(thread, job))
         thread.start()
 
@@ -334,15 +332,21 @@ class CompressTab(QWidget):
             self._probe_jobs.remove(job)
         if thread in self._probe_threads:
             self._probe_threads.remove(thread)
+        self._probe_request_by_job_id.pop(job.job_id, None)
         job.deleteLater()
         thread.deleteLater()
 
-    def _on_probe_results(self, request_id: int, probes: list[FileProbe]) -> None:
+    @pyqtSlot(object)
+    def _on_probe_results(self, result: ProbeFilesResult) -> None:
+        request_id = result.request_id
+        probes = result.probes
         if request_id != self._probe_request_id or not probes:
             return
         self.set_duration(probes[0].duration_sec)
 
-    def _on_probe_failed(self, request_id: int, error: JobError) -> None:
+    @pyqtSlot(object)
+    def _on_probe_failed(self, error: JobError) -> None:
+        request_id = self._probe_request_by_job_id.get(error.job_id)
         if request_id != self._probe_request_id:
             return
         self.set_duration(0.0)

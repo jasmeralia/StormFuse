@@ -16,6 +16,7 @@ from stormfuse.ffmpeg.encoders import EncoderChoice
 from stormfuse.jobs.base import Job
 from stormfuse.ui import settings as ui_settings
 from stormfuse.ui.main_window import MainWindow
+from stormfuse.ui.settings_dialog import SettingsValues
 
 
 class _WaitingJob(Job):
@@ -140,21 +141,37 @@ def test_help_menu_includes_send_logs_action(qtbot: QtBot, tmp_path: Path) -> No
     assert [action.text() for action in help_menu.actions()] == [
         "Check for Updates",
         "About",
-        "Enable Debug ffmpeg Logs",
         "Open Logs",
         "Send Logs...",
         "Clear Log Files",
     ]
 
 
-def test_help_menu_debug_ffmpeg_logs_action_persists_and_reconfigures(
+def test_file_menu_includes_settings_action(qtbot: QtBot, tmp_path: Path) -> None:
+    window = MainWindow(
+        ffmpeg_exe=tmp_path / "ffmpeg.exe",
+        ffprobe_exe=tmp_path / "ffprobe.exe",
+        encoder=EncoderChoice.NVENC,
+    )
+    qtbot.addWidget(window)
+    window.show()
+
+    file_menu = next(
+        action.menu()
+        for action in window.menuBar().actions()
+        if action.text() == "File" and isinstance(action.menu(), QMenu)
+    )
+
+    assert [action.text() for action in file_menu.actions()] == ["Exit", "Settings..."]
+
+
+def test_settings_values_persist_and_reconfigure_debug_logging(
     qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    saved: list[bool] = []
+    saved_debug: list[bool] = []
+    saved_auto_updates: list[bool] = []
+    saved_beta_updates: list[bool] = []
     configured: list[bool] = []
-
-    def remember_setting(enabled: bool) -> None:
-        saved.append(enabled)
 
     def remember_config(enabled: bool) -> None:
         configured.append(enabled)
@@ -165,7 +182,15 @@ def test_help_menu_debug_ffmpeg_logs_action_persists_and_reconfigures(
     )
     monkeypatch.setattr(
         "stormfuse.ui.main_window.ui_settings.set_debug_ffmpeg_logging_enabled",
-        remember_setting,
+        saved_debug.append,
+    )
+    monkeypatch.setattr(
+        "stormfuse.ui.main_window.ui_settings.set_auto_check_updates",
+        saved_auto_updates.append,
+    )
+    monkeypatch.setattr(
+        "stormfuse.ui.main_window.ui_settings.set_allow_prerelease_updates",
+        saved_beta_updates.append,
     )
     monkeypatch.setattr(
         "stormfuse.ui.main_window.configure_debug_logging",
@@ -180,23 +205,18 @@ def test_help_menu_debug_ffmpeg_logs_action_persists_and_reconfigures(
     qtbot.addWidget(window)
     window.show()
 
-    help_menu = next(
-        action.menu()
-        for action in window.menuBar().actions()
-        if action.text() == "Help" and isinstance(action.menu(), QMenu)
+    window._apply_settings_values(  # type: ignore[attr-defined]
+        SettingsValues(
+            debug_ffmpeg_logging=True,
+            auto_check_updates=False,
+            allow_prerelease_updates=True,
+        )
     )
-    debug_action = next(
-        action for action in help_menu.actions() if action.text() == "Enable Debug ffmpeg Logs"
-    )
 
-    assert debug_action.isCheckable()
-    assert debug_action.isChecked()
-    assert configured == [True]
-
-    debug_action.trigger()
-
-    assert saved == [False]
-    assert configured == [True, False]
+    assert saved_debug == [True]
+    assert saved_auto_updates == [False]
+    assert saved_beta_updates == [True]
+    assert configured == [True, True]
 
 
 def test_view_menu_updates_checked_theme_action(

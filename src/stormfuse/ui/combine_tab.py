@@ -25,7 +25,7 @@ from stormfuse.ffmpeg.encoders import EncoderChoice
 from stormfuse.ffmpeg.locator import ffprobe_path
 from stormfuse.ffmpeg.probe import FileProbe, probe
 from stormfuse.jobs.base import JobError, JobResult
-from stormfuse.jobs.probe import ProbeFilesJob
+from stormfuse.jobs.probe import ProbeFilesJob, ProbeFilesResult
 from stormfuse.ui.error_dialogs import build_job_failure_guidance, show_diagnostic_dialog
 from stormfuse.ui.settings import KEY_COMBINE_ADD, KEY_COMBINE_OUT, last_dir, remember_dir
 from stormfuse.ui.theme import show_warning_message
@@ -49,6 +49,7 @@ class CombineTab(QWidget):
         self._probe_file = probe_file or self._default_probe_file
         self._probe_jobs: list[ProbeFilesJob] = []
         self._probe_threads: list[QThread] = []
+        self._probe_paths_by_job_id: dict[str, list[Path]] = {}
 
         # --- File list ---
         self._file_list = FileListWidget()
@@ -409,11 +410,12 @@ class CombineTab(QWidget):
 
         self._probe_threads.append(thread)
         self._probe_jobs.append(job)
+        self._probe_paths_by_job_id[job.job_id] = list(paths)
 
         thread.started.connect(job.run)
         job.finished.connect(thread.quit)
-        job.probed.connect(lambda probes, paths=list(paths): self._on_probe_results(paths, probes))
-        job.failed.connect(lambda error, paths=list(paths): self._on_probe_failed(paths, error))
+        job.probed.connect(self._on_probe_results)
+        job.failed.connect(self._on_probe_failed)
         thread.finished.connect(lambda thread=thread, job=job: self._cleanup_probe_job(thread, job))
         thread.start()
 
@@ -422,21 +424,26 @@ class CombineTab(QWidget):
             self._probe_jobs.remove(job)
         if thread in self._probe_threads:
             self._probe_threads.remove(thread)
+        self._probe_paths_by_job_id.pop(job.job_id, None)
         job.deleteLater()
         thread.deleteLater()
 
-    def _on_probe_results(self, expected_paths: list[Path], probes: list[FileProbe]) -> None:
+    @pyqtSlot(object)
+    def _on_probe_results(self, result: ProbeFilesResult) -> None:
+        expected_paths = result.paths
         current_paths = set(self._file_list.all_paths())
         if not any(path in current_paths for path in expected_paths):
             return
         probes_by_path = self._file_list.cached_probes()
         probes_by_path.update(
-            {probe.path: probe for probe in probes if probe.path in current_paths}
+            {probe.path: probe for probe in result.probes if probe.path in current_paths}
         )
         self._file_list.set_probe_results(probes_by_path)
         self._refresh_preview()
 
-    def _on_probe_failed(self, expected_paths: list[Path], error: JobError) -> None:
+    @pyqtSlot(object)
+    def _on_probe_failed(self, error: JobError) -> None:
+        expected_paths = self._probe_paths_by_job_id.get(error.job_id, [])
         current_paths = set(self._file_list.all_paths())
         if not any(path in current_paths for path in expected_paths):
             return

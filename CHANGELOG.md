@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-04-25
+
+### Added
+
+#### Installer and settings (§6.4, §12.2)
+- The installer finish page now offers to launch StormFuse after installation
+- Added a Settings dialog for diagnostics and update preferences, including startup update checks and beta/prerelease update opt-in
+
+#### Crash diagnostics (§9)
+- Startup now detects fatal crash logs from the previous run, snapshots them, and shows a diagnostic dialog instead of leaving users with a silent disappearance
+- Diagnostic bundles and log uploads now include fatal crash logs alongside `latest.log` and session logs
+
+### Changed
+
+#### Diagnostics and updates (§6.4, §9)
+- Moved the debug ffmpeg logging preference out of the Help menu and into Settings
+- Fatal crash logging now starts each session with metadata and keeps previous fatal logs separate
+
+### Fixed
+
+#### NVENC detection (§5.3)
+- Fixed false libx264 fallback on NVIDIA systems that reject the old `64x64` test encode by probing with `256x256` and retrying `320x240` on minimum-dimension errors
+- NVENC probing now logs the ffmpeg version, matching `h264_nvenc` encoder lines, exact test argv, test size, and stderr tail
+
+#### Probe preview stability (§6.2, §6.3, §8)
+- Probe jobs now deliver results through UI-owned slots with request context instead of worker-thread lambdas that could touch widgets after probing completes
+
 ## [1.0.6] - 2026-04-25
 
 ### Changed

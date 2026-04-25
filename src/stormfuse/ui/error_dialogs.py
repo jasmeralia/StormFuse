@@ -267,11 +267,14 @@ def build_diagnostic_bundle(
     stderr_tail: str,
     encoder: EncoderChoice | None,
     latest_log_path: Path | None = None,
+    fatal_log_path: Path | None = None,
 ) -> str:
     """Build the clipboard diagnostic payload required by the spec."""
     stderr_excerpt = format_stderr_excerpt(stderr_tail)
     latest_path = latest_log_path or (LOG_DIR / "latest.log")
+    fatal_path = fatal_log_path or _latest_fatal_log_path(LOG_DIR)
     latest_log = _read_latest_log(latest_path)
+    fatal_log = _read_optional_log(fatal_path, "fatal crash log")
 
     return "\n".join(
         [
@@ -287,6 +290,9 @@ def build_diagnostic_bundle(
             "",
             f"latest.log: {latest_path}",
             latest_log,
+            "",
+            f"fatal log: {fatal_path}",
+            fatal_log,
         ]
     )
 
@@ -313,6 +319,27 @@ def _read_latest_log(path: Path) -> str:
     if content:
         return content
     return "[latest.log is empty]"
+
+
+def _read_optional_log(path: Path | None, label: str) -> str:
+    if path is None:
+        return f"[No {label} found]"
+    try:
+        content = path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return f"[Unable to read {label}: {exc}]"
+    if content:
+        return content
+    return f"[{label} is empty]"
+
+
+def _latest_fatal_log_path(log_dir: Path) -> Path | None:
+    paths = sorted(
+        (path for path in log_dir.glob("fatal_errors*.log") if path.is_file()),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    return paths[0] if paths else None
 
 
 def _append_report_note(message: str, report_note: str | None) -> str:

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from PyQt6.QtCore import pyqtSignal
@@ -14,19 +15,35 @@ from stormfuse.jobs.base import Job
 ProbeFile = Callable[[Path], FileProbe]
 
 
+@dataclass(frozen=True)
+class ProbeFilesResult:
+    """Probe result payload with the original request context."""
+
+    paths: list[Path]
+    probes: list[FileProbe]
+    request_id: int | None = None
+
+
 class ProbeFilesJob(Job):
     """Probe one or more media files off the UI thread and return FileProbe objects."""
 
-    probed = pyqtSignal(object)  # list[FileProbe]
+    probed = pyqtSignal(object)  # ProbeFilesResult
 
-    def __init__(self, paths: list[Path], probe_file: ProbeFile) -> None:
+    def __init__(
+        self,
+        paths: list[Path],
+        probe_file: ProbeFile,
+        *,
+        request_id: int | None = None,
+    ) -> None:
         super().__init__()
         self._paths = list(paths)
         self._probe_file = probe_file
+        self._request_id = request_id
 
     def _run_job(self) -> None:
         if not self._paths:
-            self.probed.emit([])
+            self.probed.emit(ProbeFilesResult([], [], self._request_id))
             return
 
         probes: list[FileProbe] = []
@@ -53,4 +70,4 @@ class ProbeFilesJob(Job):
         if self.is_cancelled:
             return
 
-        self.probed.emit(probes)
+        self.probed.emit(ProbeFilesResult(list(self._paths), probes, self._request_id))

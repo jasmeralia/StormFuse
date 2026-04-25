@@ -126,6 +126,10 @@ class TestDetectEncoder:
                 return subprocess.CompletedProcess(
                     args=argv, returncode=0, stdout="cuda\n", stderr=""
                 )
+            if argv[-1] == "-version":
+                return subprocess.CompletedProcess(
+                    args=argv, returncode=0, stdout="ffmpeg version n7.1\n", stderr=""
+                )
             return subprocess.CompletedProcess(
                 args=argv,
                 returncode=0,
@@ -146,6 +150,13 @@ class TestDetectEncoder:
             argv: list[str], *_args: object, **_kwargs: object
         ) -> subprocess.CompletedProcess[str]:
             calls.append(argv)
+            if argv[-1] == "-version":
+                return subprocess.CompletedProcess(
+                    args=argv,
+                    returncode=0,
+                    stdout="ffmpeg version n7.1\n",
+                    stderr="",
+                )
             if argv[-1] == "-hwaccels":
                 return subprocess.CompletedProcess(
                     args=argv,
@@ -171,6 +182,7 @@ class TestDetectEncoder:
 
         assert detect_encoder(tmp_path / "ffmpeg.exe") == EncoderChoice.NVENC
         assert calls == [
+            [str(tmp_path / "ffmpeg.exe"), "-hide_banner", "-version"],
             [str(tmp_path / "ffmpeg.exe"), "-hide_banner", "-hwaccels"],
             [str(tmp_path / "ffmpeg.exe"), "-hide_banner", "-encoders"],
             [
@@ -180,7 +192,7 @@ class TestDetectEncoder:
                 "-f",
                 "lavfi",
                 "-i",
-                "color=c=black:s=64x64:d=0.05",
+                "color=c=black:s=256x256:d=0.05",
                 "-c:v",
                 "h264_nvenc",
                 "-f",
@@ -203,10 +215,17 @@ class TestDetectEncoder:
                 return subprocess.CompletedProcess(
                     args=argv,
                     returncode=0,
-                    stdout="Hardware acceleration methods:\ncuda\n",
+                    stdout="ffmpeg version n7.1\n",
                     stderr="",
                 )
             if calls == 2:
+                return subprocess.CompletedProcess(
+                    args=argv,
+                    returncode=0,
+                    stdout="Hardware acceleration methods:\ncuda\n",
+                    stderr="",
+                )
+            if calls == 3:
                 return subprocess.CompletedProcess(
                     args=argv,
                     returncode=0,
@@ -223,6 +242,50 @@ class TestDetectEncoder:
         monkeypatch.setattr("stormfuse.ffmpeg.encoders.run", fake_run)
 
         assert detect_encoder(tmp_path / "ffmpeg.exe") == EncoderChoice.LIBX264
+
+    def test_retries_nvenc_dimension_failure_with_larger_probe(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        test_inputs: list[str] = []
+
+        def fake_run(
+            argv: list[str], *_args: object, **_kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            if argv[-1] == "-version":
+                return subprocess.CompletedProcess(
+                    args=argv,
+                    returncode=0,
+                    stdout="ffmpeg version n7.1\n",
+                    stderr="",
+                )
+            if argv[-1] == "-hwaccels":
+                return subprocess.CompletedProcess(
+                    args=argv, returncode=0, stdout="cuda\n", stderr=""
+                )
+            if argv[-1] == "-encoders":
+                return subprocess.CompletedProcess(
+                    args=argv,
+                    returncode=0,
+                    stdout="Encoders:\n V..... h264_nvenc\n",
+                    stderr="",
+                )
+            test_inputs.append(argv[argv.index("-i") + 1])
+            if "256x256" in test_inputs[-1]:
+                return subprocess.CompletedProcess(
+                    args=argv,
+                    returncode=234,
+                    stdout="",
+                    stderr="Frame Dimension less than the minimum supported value.",
+                )
+            return subprocess.CompletedProcess(args=argv, returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr("stormfuse.ffmpeg.encoders.run", fake_run)
+
+        assert detect_encoder(tmp_path / "ffmpeg.exe") == EncoderChoice.NVENC
+        assert test_inputs == [
+            "color=c=black:s=256x256:d=0.05",
+            "color=c=black:s=320x240:d=0.05",
+        ]
 
     def test_respects_force_encoder_override(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

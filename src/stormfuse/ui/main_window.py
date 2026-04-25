@@ -12,6 +12,7 @@ from PyQt6.QtCore import QObject, QPoint, Qt, QThread, QTimer, pyqtSignal, pyqtS
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import (
     QApplication,
+    QDialog,
     QLabel,
     QMainWindow,
     QMenu,
@@ -33,6 +34,7 @@ from stormfuse.ui.combine_tab import CombineTab
 from stormfuse.ui.compress_tab import CompressTab
 from stormfuse.ui.log_pane import LogPane
 from stormfuse.ui.menu_actions import open_log_dir, show_log_submit_dialog
+from stormfuse.ui.settings_dialog import SettingsDialog, SettingsValues
 from stormfuse.ui.theme import (
     apply_application_theme,
     apply_widget_theme,
@@ -97,7 +99,6 @@ class MainWindow(QMainWindow):
         self._theme_mode = ui_settings.theme_mode()
         self._theme_actions: dict[str, QAction] = {}
         self._theme_action_group: QActionGroup | None = None
-        self._debug_ffmpeg_logs_action: QAction | None = None
 
         self.setWindowTitle("StormFuse")
         self.setMinimumSize(700, 500)
@@ -178,6 +179,10 @@ class MainWindow(QMainWindow):
         assert exit_action is not None
         exit_action.triggered.connect(self.close)
 
+        settings_action = file_menu.addAction("Settings...")
+        assert settings_action is not None
+        settings_action.triggered.connect(self._show_settings)
+
         view_menu = bar.addMenu("View")
         assert view_menu is not None
         self._build_theme_menu(view_menu)
@@ -192,18 +197,6 @@ class MainWindow(QMainWindow):
         about_action = help_menu.addAction("About")
         assert about_action is not None
         about_action.triggered.connect(self._show_about)
-
-        debug_logs_action = help_menu.addAction("Enable Debug ffmpeg Logs")
-        assert debug_logs_action is not None
-        debug_logs_action.setCheckable(True)
-        debug_logs_action.setChecked(ui_settings.debug_ffmpeg_logging_enabled())
-        debug_logs_action.setStatusTip(
-            "Writes verbose ffmpeg diagnostic logs to the StormFuse log folder. "
-            "Useful for troubleshooting. May produce large log files."
-        )
-        debug_logs_action.setToolTip(debug_logs_action.statusTip())
-        debug_logs_action.toggled.connect(self._set_debug_ffmpeg_logging)
-        self._debug_ffmpeg_logs_action = debug_logs_action
 
         logs_action = help_menu.addAction("Open Logs")
         assert logs_action is not None
@@ -372,9 +365,17 @@ class MainWindow(QMainWindow):
     def _show_about(self) -> None:
         AboutDialog(self).exec()
 
-    def _set_debug_ffmpeg_logging(self, enabled: bool) -> None:
-        ui_settings.set_debug_ffmpeg_logging_enabled(enabled)
-        configure_debug_logging(enabled)
+    def _show_settings(self) -> None:
+        dialog = SettingsDialog(self)
+        if dialog.exec() != int(QDialog.DialogCode.Accepted):
+            return
+        self._apply_settings_values(dialog.values())
+
+    def _apply_settings_values(self, values: SettingsValues) -> None:
+        ui_settings.set_debug_ffmpeg_logging_enabled(values.debug_ffmpeg_logging)
+        ui_settings.set_auto_check_updates(values.auto_check_updates)
+        ui_settings.set_allow_prerelease_updates(values.allow_prerelease_updates)
+        configure_debug_logging(values.debug_ffmpeg_logging)
 
     def _clear_logs(self) -> None:
         counts = clear_log_files()

@@ -43,6 +43,16 @@ def test_nsis_script_offers_optional_desktop_shortcut() -> None:
     assert 'CreateShortcut "$DESKTOP\\${APP_NAME}.lnk" "$INSTDIR\\StormFuse.exe"' in script
 
 
+def test_nsis_finish_page_can_launch_stormfuse() -> None:
+    script_path = REPO_ROOT / "build" / "installer" / "stormfuse.nsi"
+    script = script_path.read_text(encoding="utf-8")
+
+    assert '!define MUI_FINISHPAGE_RUN "$WINDIR\\explorer.exe"' in script
+    assert '!define MUI_FINISHPAGE_RUN_PARAMETERS "$INSTDIR\\StormFuse.exe"' in script
+    assert '!define MUI_FINISHPAGE_RUN_TEXT "Launch ${APP_NAME} v${APP_VERSION}"' in script
+    assert "!insertmacro MUI_PAGE_FINISH" in script
+
+
 def test_nsis_uninstaller_can_optionally_remove_app_data() -> None:
     script_path = REPO_ROOT / "build" / "installer" / "stormfuse.nsi"
     script = script_path.read_text(encoding="utf-8")

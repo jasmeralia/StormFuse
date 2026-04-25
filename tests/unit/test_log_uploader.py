@@ -24,9 +24,11 @@ def test_upload_success_posts_logs_and_metadata(tmp_path, monkeypatch) -> None:
     first_log = tmp_path / "stormfuse-20260424-111111-1.log"
     ffmpeg_report = tmp_path / "ffmpeg-job-123.log"
     latest_log = tmp_path / "latest.log"
+    fatal_log = tmp_path / "fatal_errors-20260425-001139.log"
     first_log.write_text("session log\n", encoding="utf-8")
     ffmpeg_report.write_text("ffmpeg debug log\n", encoding="utf-8")
     latest_log.write_text("latest log\n", encoding="utf-8")
+    fatal_log.write_text("Windows fatal exception\n", encoding="utf-8")
 
     captured: dict[str, object] = {}
 
@@ -62,11 +64,12 @@ def test_upload_success_posts_logs_and_metadata(tmp_path, monkeypatch) -> None:
     assert payload["os_platform"] == log_uploader.sys.platform
     assert payload["encoder"] == "libx264"
     assert [entry["filename"] for entry in payload["log_files"]] == [
+        "fatal_errors-20260425-001139.log",
         "ffmpeg-job-123.log",
         "latest.log",
         "stormfuse-20260424-111111-1.log",
     ]
-    encoded = payload["log_files"][1]["content"]
+    encoded = payload["log_files"][2]["content"]
     assert base64.b64decode(encoded.encode("ascii")).replace(b"\r\n", b"\n") == b"latest log\n"
 
 

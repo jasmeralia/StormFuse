@@ -20,6 +20,10 @@ def test_timeout_expired_falls_back_and_logs_event(
     def fake_run(
         argv: list[str], *_args: object, **_kwargs: object
     ) -> subprocess.CompletedProcess[str]:
+        if argv[-1] == "-version":
+            return subprocess.CompletedProcess(
+                args=argv, returncode=0, stdout="ffmpeg version n7.1\n", stderr=""
+            )
         if argv[-1] == "-hwaccels":
             return subprocess.CompletedProcess(args=argv, returncode=0, stdout="cuda\n", stderr="")
         if argv[-1] == "-encoders":

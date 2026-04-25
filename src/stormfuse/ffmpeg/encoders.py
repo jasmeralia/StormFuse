@@ -14,6 +14,7 @@ from stormfuse.ffmpeg._subprocess import run
 log = logging.getLogger("ffmpeg.encoders")
 
 _PROBE_TIMEOUT_SEC = 10
+_NVENC_TEST_SIZES = ("256x256", "320x240")
 
 
 class EncoderChoice(Enum):
@@ -41,6 +42,7 @@ def detect_encoder(ffmpeg_exe: Path) -> EncoderChoice:
 
 
 def _detect_encoder_impl(ffmpeg_exe: Path) -> EncoderChoice:
+    _log_ffmpeg_version(ffmpeg_exe)
     _log_hwaccels(ffmpeg_exe)
 
     # Step 1: check if h264_nvenc appears in -encoders output
@@ -62,6 +64,7 @@ def _detect_encoder_impl(ffmpeg_exe: Path) -> EncoderChoice:
         return EncoderChoice.LIBX264
 
     encoder_stdout = _output_text(result.stdout)
+    nvenc_lines = _matching_lines(encoder_stdout, "h264_nvenc")
     log.debug(
         "NVENC probe encoder listing",
         extra={
@@ -69,6 +72,7 @@ def _detect_encoder_impl(ffmpeg_exe: Path) -> EncoderChoice:
             "ctx": {
                 "step": "encoders",
                 "stdout_excerpt": encoder_stdout[:500],
+                "h264_nvenc_lines": nvenc_lines,
                 "returncode": result.returncode,
             },
         },
@@ -84,21 +88,18 @@ def _detect_encoder_impl(ffmpeg_exe: Path) -> EncoderChoice:
         )
         return EncoderChoice.LIBX264
 
-    # Step 2: try a tiny 1-frame test encode
-    test_cmd = [
-        str(ffmpeg_exe),
-        "-hide_banner",
-        "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        "color=c=black:s=64x64:d=0.05",
-        "-c:v",
-        "h264_nvenc",
-        "-f",
-        "null",
-        "-",
-    ]
+    # Step 2: try a small 1-frame test encode. Some NVENC runtimes reject 64x64.
+    for test_size in _NVENC_TEST_SIZES:
+        result_choice = _test_nvenc_encode(ffmpeg_exe, test_size)
+        if result_choice == EncoderChoice.NVENC:
+            return result_choice
+        if result_choice == EncoderChoice.LIBX264 and test_size == _NVENC_TEST_SIZES[-1]:
+            return result_choice
+    return EncoderChoice.LIBX264
+
+
+def _test_nvenc_encode(ffmpeg_exe: Path, test_size: str) -> EncoderChoice:
+    test_cmd = _nvenc_test_cmd(ffmpeg_exe, test_size)
     try:
         test_result = run(
             test_cmd,
@@ -126,7 +127,11 @@ def _detect_encoder_impl(ffmpeg_exe: Path) -> EncoderChoice:
             "NVENC test encode failed (OS error)",
             extra={
                 "event": "nvenc.probe",
-                "ctx": {"result": "libx264_fallback", "reason": str(exc)},
+                "ctx": {
+                    "result": "libx264_fallback",
+                    "reason": str(exc),
+                    "argv": test_cmd,
+                },
             },
         )
         return EncoderChoice.LIBX264
@@ -134,24 +139,49 @@ def _detect_encoder_impl(ffmpeg_exe: Path) -> EncoderChoice:
     if test_result.returncode == 0:
         log.info(
             "NVENC available",
-            extra={"event": "nvenc.probe", "ctx": {"result": "nvenc"}},
+            extra={
+                "event": "nvenc.probe",
+                "ctx": {"result": "nvenc", "argv": test_cmd, "test_size": test_size},
+            },
         )
         return EncoderChoice.NVENC
 
     stderr_tail = _stderr_tail(test_result.stderr)
+    should_retry = _is_nvenc_dimension_error(stderr_tail) and test_size != _NVENC_TEST_SIZES[-1]
     log.info(
         "NVENC test encode failed",
         extra={
             "event": "nvenc.probe",
             "ctx": {
-                "result": "libx264_fallback",
+                "result": "retry" if should_retry else "libx264_fallback",
                 "reason": "test encode non-zero exit",
                 "returncode": test_result.returncode,
+                "argv": test_cmd,
+                "test_size": test_size,
                 "stderr_tail": stderr_tail,
             },
         },
     )
+    if should_retry:
+        return _test_nvenc_encode(ffmpeg_exe, _NVENC_TEST_SIZES[-1])
     return EncoderChoice.LIBX264
+
+
+def _nvenc_test_cmd(ffmpeg_exe: Path, test_size: str) -> list[str]:
+    return [
+        str(ffmpeg_exe),
+        "-hide_banner",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        f"color=c=black:s={test_size}:d=0.05",
+        "-c:v",
+        "h264_nvenc",
+        "-f",
+        "null",
+        "-",
+    ]
 
 
 def compressed_video_args(
@@ -287,6 +317,37 @@ def _forced_encoder_choice() -> EncoderChoice | None:
     return None
 
 
+def _log_ffmpeg_version(ffmpeg_exe: Path) -> None:
+    argv = [str(ffmpeg_exe), "-hide_banner", "-version"]
+    try:
+        result = run(
+            argv,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        log.info(
+            "Unable to inspect ffmpeg version",
+            extra={"event": "nvenc.ffmpeg_version", "ctx": {"error": str(exc), "argv": argv}},
+        )
+        return
+
+    stdout = _output_text(result.stdout)
+    first_line = stdout.splitlines()[0] if stdout.splitlines() else ""
+    log.info(
+        "ffmpeg version inspected",
+        extra={
+            "event": "nvenc.ffmpeg_version",
+            "ctx": {
+                "returncode": result.returncode,
+                "argv": argv,
+                "version": first_line,
+            },
+        },
+    )
+
+
 def _log_hwaccels(ffmpeg_exe: Path) -> None:
     argv = [str(ffmpeg_exe), "-hide_banner", "-hwaccels"]
     try:
@@ -322,6 +383,15 @@ def _log_hwaccels(ffmpeg_exe: Path) -> None:
             },
         },
     )
+
+
+def _matching_lines(text: str, pattern: str) -> list[str]:
+    return [line.strip() for line in text.splitlines() if pattern in line.casefold()]
+
+
+def _is_nvenc_dimension_error(stderr_tail: list[str]) -> bool:
+    text = "\n".join(stderr_tail).casefold()
+    return "frame dimension" in text and "minimum supported" in text
 
 
 def _stderr_tail(stderr: str | bytes | None) -> list[str]:

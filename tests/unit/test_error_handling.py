@@ -53,3 +53,25 @@ def test_installed_sys_hook_logs_event_and_calls_dialog_once(
     record = next(record for record in caplog.records if record.event == "app.unhandled")
     assert "boom" in record.getMessage()
     assert record.ctx["stderr_tail"]
+
+
+def test_snapshot_previous_fatal_log_moves_crash_to_session_file(tmp_path) -> None:
+    fatal_log = tmp_path / "fatal_errors.log"
+    fatal_log.write_text(
+        "Windows fatal exception: access violation\n  File Windows fatal exception\n",
+        encoding="utf-8",
+    )
+
+    report = error_handling.snapshot_previous_fatal_log(tmp_path)
+
+    assert report is not None
+    assert report.path.name.startswith("fatal_errors-")
+    assert report.path.read_text(encoding="utf-8") == report.content
+    assert report.truncated
+    assert fatal_log.read_text(encoding="utf-8") == ""
+
+
+def test_snapshot_previous_fatal_log_ignores_empty_file(tmp_path) -> None:
+    (tmp_path / "fatal_errors.log").write_text("", encoding="utf-8")
+
+    assert error_handling.snapshot_previous_fatal_log(tmp_path) is None

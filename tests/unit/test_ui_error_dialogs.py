@@ -20,7 +20,9 @@ from stormfuse.ui.error_dialogs import (
 
 def test_build_diagnostic_bundle_includes_required_context(tmp_path) -> None:
     latest_log = tmp_path / "latest.log"
+    fatal_log = tmp_path / "fatal_errors-previous.log"
     latest_log.write_text("json line 1\njson line 2\n", encoding="utf-8")
+    fatal_log.write_text("Windows fatal exception: access violation\n", encoding="utf-8")
     stderr_tail = "\n".join(f"stderr-{index:02d}" for index in range(1, 13))
 
     bundle = build_diagnostic_bundle(
@@ -29,6 +31,7 @@ def test_build_diagnostic_bundle_includes_required_context(tmp_path) -> None:
         stderr_tail=stderr_tail,
         encoder=EncoderChoice.NVENC,
         latest_log_path=latest_log,
+        fatal_log_path=fatal_log,
     )
 
     assert "App version:" in bundle
@@ -41,6 +44,8 @@ def test_build_diagnostic_bundle_includes_required_context(tmp_path) -> None:
     assert "stderr-12" in bundle
     assert "json line 1" in bundle
     assert str(latest_log) in bundle
+    assert str(fatal_log) in bundle
+    assert "Windows fatal exception: access violation" in bundle
 
 
 def test_diagnostic_dialog_shows_excerpt_and_copies_bundle(

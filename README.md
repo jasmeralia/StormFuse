@@ -23,7 +23,7 @@ StormFuse ships its own pinned `ffmpeg.exe` and `ffprobe.exe`. It does not use `
 On startup, StormFuse does two checks before the main window is ready:
 
 1. It locates the bundled `ffmpeg` and `ffprobe` binaries.
-2. It probes NVENC in two stages: `ffmpeg -encoders` must list `h264_nvenc`, then a tiny 1-frame encode must succeed.
+2. It probes NVENC in two stages: `ffmpeg -encoders` must list `h264_nvenc`, then a small 1-frame `256x256` encode must succeed.
 
 The status bar shows the result plainly:
 
@@ -100,7 +100,7 @@ That is the fastest way to hand someone enough context to debug a failure.
 ### Common NVENC pitfalls
 
 - `h264_nvenc` is not present in `ffmpeg -encoders`: StormFuse will use `libx264`.
-- The driver or runtime encode test fails even though the encoder is listed: StormFuse will use `libx264`.
+- The driver or runtime encode test fails even though the encoder is listed: StormFuse logs the exact probe command and will use `libx264`.
 - The machine changed state after launch: use the status-bar context menu action `Re-check NVENC`.
 
 If NVENC keeps falling back unexpectedly, check `latest.log` for `nvenc.probe` and the recorded reason.

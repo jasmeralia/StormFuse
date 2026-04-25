@@ -25,6 +25,9 @@
 !define MUI_UNICON "..\..\resources\icons\stormfuse.ico"
 
 !define MUI_COMPONENTSPAGE_SMALLDESC
+!define MUI_FINISHPAGE_RUN "$WINDIR\explorer.exe"
+!define MUI_FINISHPAGE_RUN_PARAMETERS "$INSTDIR\StormFuse.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "Launch ${APP_NAME} v${APP_VERSION}"
 
 Var RemoveAppDataCheckbox
 Var RemoveAppDataState

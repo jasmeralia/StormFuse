@@ -11,6 +11,7 @@ import threading
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from types import FrameType, TracebackType
 
@@ -48,6 +49,48 @@ class UnhandledError:
     why: str
     next_step: str
     stderr_tail: str
+
+
+@dataclass(frozen=True)
+class PreviousCrashReport:
+    """Fatal crash artifact from the previous run."""
+
+    path: Path
+    content: str
+    truncated: bool
+
+
+def snapshot_previous_fatal_log(log_dir: Path = LOG_DIR) -> PreviousCrashReport | None:
+    """Move a previous fatal crash log aside before this session starts."""
+    fatal_log_path = log_dir / "fatal_errors.log"
+    try:
+        if not fatal_log_path.is_file() or fatal_log_path.stat().st_size == 0:
+            return None
+        content = fatal_log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+    if "Windows fatal exception" not in content and "Fatal Python error" not in content:
+        return None
+
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    snapshot_path = log_dir / f"fatal_errors-{stamp}.log"
+    try:
+        snapshot_path.write_text(content, encoding="utf-8")
+        fatal_log_path.write_text("", encoding="utf-8")
+    except OSError:
+        return PreviousCrashReport(
+            path=fatal_log_path,
+            content=content,
+            truncated=_fatal_log_looks_truncated(content),
+        )
+
+    return PreviousCrashReport(
+        path=snapshot_path,
+        content=content,
+        truncated=_fatal_log_looks_truncated(content),
+    )
 
 
 def install_sys_hook(
@@ -195,6 +238,17 @@ def enable_fault_handler(log_dir: Path = LOG_DIR) -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     fault_log_path = log_dir / "fatal_errors.log"
     fault_file = fault_log_path.open("a", encoding="utf-8")
+    fault_file.write(
+        "\n".join(
+            [
+                f"StormFuse fatal log session: {datetime.now(UTC).isoformat()}",
+                f"Platform: {sys.platform}",
+                f"Python: {sys.version}",
+                "",
+            ]
+        )
+    )
+    fault_file.flush()
     faulthandler.enable(file=fault_file, all_threads=True)
     _STATE.fault_log_handle = fault_file
     log.info(
@@ -231,3 +285,16 @@ def _flush_log_handlers() -> None:
             handler.flush()
         except Exception:
             continue
+
+
+def _fatal_log_looks_truncated(content: str) -> bool:
+    if "File Windows fatal exception" in content:
+        return True
+    stripped = content.rstrip()
+    if not stripped:
+        return False
+    return not (
+        stripped.endswith("Extension modules:")
+        or stripped.endswith("Current thread")
+        or "most recent call first" in stripped
+    )

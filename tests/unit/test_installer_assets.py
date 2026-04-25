@@ -53,6 +53,19 @@ def test_nsis_finish_page_can_launch_stormfuse() -> None:
     assert "!insertmacro MUI_PAGE_FINISH" in script
 
 
+def test_nsis_installer_kills_running_stormfuse_before_file_operations() -> None:
+    script_path = REPO_ROOT / "build" / "installer" / "stormfuse.nsi"
+    script = script_path.read_text(encoding="utf-8")
+
+    kill_call = script.index("Call KillRunningStormFuse")
+    file_copy = script.index('File /r "${DIST_DIR}\\*.*"')
+
+    assert kill_call < file_copy
+    assert "Function KillRunningStormFuse" in script
+    assert 'ExecWait \'"$SYSDIR\\taskkill.exe" /IM "StormFuse.exe" /F /T\' $0' in script
+    assert "Sleep 1000" in script
+
+
 def test_nsis_uninstaller_can_optionally_remove_app_data() -> None:
     script_path = REPO_ROOT / "build" / "installer" / "stormfuse.nsi"
     script = script_path.read_text(encoding="utf-8")

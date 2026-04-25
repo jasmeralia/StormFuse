@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Callable
 from pathlib import Path
 
@@ -68,12 +69,14 @@ class UpdateDialog(QDialog):
         download_installer_fn: Callable[[UpdateInfo, Path, Callable[[int, int], None]], Path]
         | None = None,
         launch_installer_fn: Callable[[Path], bool] | None = None,
+        exit_after_launch_fn: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent)
         self._update_info = update_info
         self._download_dir = download_dir or (Path.home() / "Downloads")
         self._download_installer_fn = download_installer_fn or download_installer
         self._launch_installer_fn = launch_installer_fn or _launch_installer
+        self._exit_after_launch_fn = exit_after_launch_fn or _exit_after_installer_launch
         self._download_thread: QThread | None = None
         self._download_worker: _InstallerDownloadWorker | None = None
         self._progress_dialog: QProgressDialog | None = None
@@ -211,9 +214,7 @@ class UpdateDialog(QDialog):
             return
 
         self.accept()
-        app = QApplication.instance()
-        if isinstance(app, QApplication):
-            app.quit()
+        self._exit_after_launch_fn()
 
     def _launch_installer(self, path: Path) -> bool:
         try:
@@ -252,3 +253,14 @@ class UpdateDialog(QDialog):
 def _launch_installer(path: Path) -> bool:
     launched, _pid = QProcess.startDetached(str(path), [])
     return launched
+
+
+def _exit_after_installer_launch() -> None:
+    """Exit completely after handing control to the detached installer."""
+    app = QApplication.instance()
+    if isinstance(app, QApplication):
+        app.closeAllWindows()
+        app.exit(0)
+
+    logging.shutdown()
+    os._exit(0)

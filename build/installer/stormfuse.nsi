@@ -54,6 +54,7 @@ UninstPage custom un.RemoveAppDataPage un.RemoveAppDataPageLeave
 
 Section "StormFuse (required)" SEC01
     SectionIn RO
+    Call KillRunningStormFuse
     SetOutPath "$INSTDIR"
     File /r "${DIST_DIR}\*.*"
 
@@ -109,6 +110,7 @@ Function un.RemoveAppDataPageLeave
 FunctionEnd
 
 Section "Uninstall"
+    Call un.KillRunningStormFuse
     RMDir /r "$INSTDIR"
     Delete "$DESKTOP\${APP_NAME}.lnk"
     Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
@@ -120,3 +122,15 @@ Section "Uninstall"
         RMDir /r "$LOCALAPPDATA\${APP_NAME}"
     ${EndIf}
 SectionEnd
+
+Function KillRunningStormFuse
+    DetailPrint "Closing any running ${APP_NAME} processes before installing..."
+    ExecWait '"$SYSDIR\taskkill.exe" /IM "StormFuse.exe" /F /T' $0
+    Sleep 1000
+FunctionEnd
+
+Function un.KillRunningStormFuse
+    DetailPrint "Closing any running ${APP_NAME} processes before uninstalling..."
+    ExecWait '"$SYSDIR\taskkill.exe" /IM "StormFuse.exe" /F /T' $0
+    Sleep 1000
+FunctionEnd

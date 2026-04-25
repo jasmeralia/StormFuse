@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2026-04-25
+
+### Fixed
+
+#### Installer upgrade shutdown (§6.4, §12.2)
+- The in-app updater now exits the StormFuse process completely after launching the installer so background Qt threads cannot keep the old executable locked
+- The installer now runs `taskkill /IM StormFuse.exe /F /T` before writing application files, with the same guard before uninstall file removal
+
 ## [1.0.8] - 2026-04-25
 
 ### Fixed

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PyQt6.QtWidgets import QApplication, QLabel, QPushButton
+from PyQt6.QtWidgets import QLabel, QPushButton
 from pytestqt.qtbot import QtBot
 
 from stormfuse.core.update_checker import UpdateInfo
@@ -41,24 +41,22 @@ def test_update_dialog_shows_release_details(qtbot: QtBot) -> None:
     assert dialog._release_notes.toPlainText() == "Line one\nLine two"  # type: ignore[attr-defined]
 
 
-def test_update_dialog_accepts_when_installer_launches(
-    qtbot: QtBot, tmp_path: Path, monkeypatch
-) -> None:
+def test_update_dialog_accepts_when_installer_launches(qtbot: QtBot, tmp_path: Path) -> None:
     launched: list[Path] = []
-    quit_calls: list[bool] = []
+    exit_calls: list[bool] = []
     dialog = UpdateDialog(
         _update_info(),
         launch_installer_fn=lambda path: launched.append(path) or True,
+        exit_after_launch_fn=lambda: exit_calls.append(True),
     )
     qtbot.addWidget(dialog)
     dialog.show()
 
     installer_path = tmp_path / "StormFuse-Setup-1.0.6.exe"
     installer_path.write_bytes(b"MZ" + b"\0" * 32)
-    monkeypatch.setattr(QApplication, "quit", lambda self: quit_calls.append(True))
 
     dialog._on_download_finished(True, installer_path, "")  # type: ignore[attr-defined]
 
     assert launched == [installer_path]
-    assert quit_calls == [True]
+    assert exit_calls == [True]
     assert dialog.result() == dialog.DialogCode.Accepted

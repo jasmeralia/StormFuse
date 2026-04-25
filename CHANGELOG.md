@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2026-04-25
+
+### Fixed
+
+#### Combine strategy and crash handling (§5.1, §6.1, §9)
+- Mixed MP4/MKV combine inputs now force the normalize path instead of being treated as stream-copy compatible when their streams happen to match
+- Normalize plans no longer keep original MP4 files on the copy path beside MKV intermediates
+- The live log pane now receives log lines through a Qt signal, preventing ffmpeg stderr reader threads from mutating UI widgets directly
+- Clear Log Files now truncates the active `fatal_errors.log` file held by `faulthandler` instead of trying to delete it
+- Windows title-bar theming now skips child widgets, avoiding Qt warnings for docked panes
+
 ## [1.0.7] - 2026-04-25
 
 ### Added

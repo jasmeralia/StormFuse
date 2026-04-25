@@ -12,6 +12,7 @@ from stormfuse.ffmpeg.signatures import (
     AudioSignature,
     VideoSignature,
     audio_signature,
+    container_family,
     signatures_match,
 )
 
@@ -114,17 +115,15 @@ def _copy_eligible(
     audio = audio_signature(probe)
     if video is None or audio is None:
         return False
-
-    if video.codec != target_sig.codec:
-        return False
-    if video.width != target_sig.width or video.height != target_sig.height:
-        return False
-    if video.pix_fmt != target_sig.pix_fmt:
-        return False
-    if abs(video.fps - target_sig.fps) > fps_tolerance:
-        return False
-
-    return audio == _NORMALIZED_AUDIO_SIG
+    return (
+        container_family(probe) == "matroska"
+        and video.codec == target_sig.codec
+        and video.width == target_sig.width
+        and video.height == target_sig.height
+        and video.pix_fmt == target_sig.pix_fmt
+        and abs(video.fps - target_sig.fps) <= fps_tolerance
+        and audio == _NORMALIZED_AUDIO_SIG
+    )
 
 
 def _describe_target_mismatch(
@@ -137,6 +136,10 @@ def _describe_target_mismatch(
     mismatches: list[str] = []
     video = probe.video
     audio = audio_signature(probe)
+    container = container_family(probe)
+
+    if container != "matroska":
+        mismatches.append(f"container: {container} vs matroska")
 
     if video is None:
         mismatches.append("missing video stream")

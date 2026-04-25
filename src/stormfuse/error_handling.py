@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from types import FrameType, TracebackType
+from typing import TextIO
 
 from PyQt6.QtCore import (
     QCoreApplication,
@@ -30,7 +31,7 @@ log = logging.getLogger("stormfuse.error_handling")
 
 @dataclass
 class _HandlerState:
-    fault_log_handle: object | None = None
+    fault_log_handle: TextIO | None = None
     previous_qt_message_handler: (
         Callable[[QtMsgType, QMessageLogContext, str | None], None] | None
     ) = None
@@ -255,6 +256,22 @@ def enable_fault_handler(log_dir: Path = LOG_DIR) -> None:
         "Fault handler enabled",
         extra={"event": "app.fault", "ctx": {"path": str(fault_log_path)}},
     )
+
+
+def truncate_active_fault_log(path: Path = LOG_DIR / "fatal_errors.log") -> bool:
+    """Truncate the active faulthandler file if it is open for this process."""
+    handle = _STATE.fault_log_handle
+    if handle is None:
+        return False
+    try:
+        if getattr(handle, "name", None) != str(path):
+            return False
+        handle.seek(0)
+        handle.truncate()
+        handle.flush()
+    except (AttributeError, OSError, ValueError):
+        return False
+    return True
 
 
 def install_signal_hooks() -> None:

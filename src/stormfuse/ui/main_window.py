@@ -113,7 +113,7 @@ class MainWindow(QMainWindow):
         # Wire log handler → log pane
         h = get_human_handler()
         if h:
-            h.subscribe(self._log_pane.append_line)
+            h.subscribe(self._log_pane.line_received.emit)
 
         self._build_status_bar()
 

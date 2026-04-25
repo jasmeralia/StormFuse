@@ -40,3 +40,28 @@ def test_clear_log_files_deletes_ffmpeg_report_files(
     assert counts == {"deleted": 1, "truncated": 1, "failed": 0}
     assert "active\n" not in active_log.read_text(encoding="utf-8")
     assert not ffmpeg_report.exists()
+
+
+def test_clear_log_files_truncates_active_fatal_error_log(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(logging_setup, "LOG_DIR", tmp_path)
+    fatal_log = tmp_path / "fatal_errors.log"
+    fatal_log.write_text("Windows fatal exception\n", encoding="utf-8")
+    ffmpeg_report = tmp_path / "ffmpeg-job-123.log"
+    ffmpeg_report.write_text("ffmpeg debug\n", encoding="utf-8")
+    truncated: list[Path] = []
+
+    monkeypatch.setattr(
+        logging_setup,
+        "_truncate_active_fault_log",
+        lambda path: truncated.append(path) or True,
+    )
+
+    counts = logging_setup.clear_log_files()
+
+    assert counts == {"deleted": 1, "truncated": 1, "failed": 0}
+    assert truncated == [fatal_log]
+    assert fatal_log.exists()
+    assert not ffmpeg_report.exists()

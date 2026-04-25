@@ -22,6 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from stormfuse.config import LOG_DIR, MAX_LOG_FILES
+from stormfuse.error_handling import truncate_active_fault_log
 
 
 class JsonLinesFormatter(logging.Formatter):
@@ -231,6 +232,8 @@ def clear_log_files() -> dict[str, int]:
                 truncated += 1
             except OSError:
                 failed += 1
+        elif p.name == "fatal_errors.log" and _truncate_active_fault_log(p):
+            truncated += 1
         else:
             try:
                 p.unlink()
@@ -250,3 +253,7 @@ def clear_log_files() -> dict[str, int]:
         },
     )
     return {"deleted": deleted, "truncated": truncated, "failed": failed}
+
+
+def _truncate_active_fault_log(path: Path) -> bool:
+    return truncate_active_fault_log(path)

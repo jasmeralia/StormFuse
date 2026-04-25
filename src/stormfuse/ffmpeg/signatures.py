@@ -49,8 +49,27 @@ def audio_signature(probe: FileProbe) -> AudioSignature | None:
     )
 
 
+def container_family(probe: FileProbe) -> str:
+    """Return the broad container family used for concat compatibility."""
+    format_name = str(probe.raw.get("format", {}).get("format_name", "")).casefold()
+    if any(part in {"matroska", "webm"} for part in format_name.split(",")):
+        return "matroska"
+    if any(part in {"mov", "mp4", "m4a", "3gp", "3g2", "mj2"} for part in format_name.split(",")):
+        return "mp4"
+
+    suffix = probe.path.suffix.casefold()
+    if suffix in {".mkv", ".webm"}:
+        return "matroska"
+    if suffix in {".mp4", ".m4v", ".mov"}:
+        return "mp4"
+    return suffix.removeprefix(".") or "unknown"
+
+
 def signatures_match(a: FileProbe, b: FileProbe, *, fps_tolerance: float = 0.01) -> bool:
     """Return True if *a* and *b* have compatible streams for stream-copy concat."""
+    if container_family(a) != container_family(b):
+        return False
+
     av = a.video
     bv = b.video
     if av is None or bv is None:
@@ -78,6 +97,11 @@ def signatures_match(a: FileProbe, b: FileProbe, *, fps_tolerance: float = 0.01)
 def describe_mismatch(a: FileProbe, b: FileProbe, *, fps_tolerance: float = 0.01) -> list[str]:
     """Return human-readable descriptions of mismatched fields between *a* and *b*."""
     mismatches: list[str] = []
+
+    a_container = container_family(a)
+    b_container = container_family(b)
+    if a_container != b_container:
+        mismatches.append(f"container: {a_container} vs {b_container}")
 
     av, bv = a.video, b.video
     if av is None and bv is None:

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, pyqtSlot
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QDockWidget,
@@ -19,6 +19,8 @@ _MAX_LINES = 2000
 
 class LogPane(QDockWidget):
     """Dockable, collapsible pane that tails the human-readable log."""
+
+    line_received = pyqtSignal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__("Log", parent)
@@ -45,6 +47,7 @@ class LogPane(QDockWidget):
         layout.addWidget(clear_btn, alignment=Qt.AlignmentFlag.AlignRight)
 
         self.setWidget(inner)
+        self.line_received.connect(self.append_line)
 
     @pyqtSlot(str)
     def append_line(self, line: str) -> None:

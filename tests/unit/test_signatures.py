@@ -11,6 +11,7 @@ from stormfuse.ffmpeg.probe import AudioStream, FileProbe, VideoStream
 from stormfuse.ffmpeg.signatures import (
     AudioSignature,
     VideoSignature,
+    container_family,
     describe_mismatch,
     signatures_match,
 )
@@ -122,6 +123,13 @@ class TestSignaturesMatch:
         b = _make_probe(channels=1)
         assert not signatures_match(a, b)
 
+    def test_container_mismatch(self) -> None:
+        a = _make_probe()
+        b = _make_probe()
+        b.path = Path("fake.mp4")
+
+        assert not signatures_match(a, b)
+
 
 class TestDescribeMismatch:
     def test_no_mismatch_returns_empty(self) -> None:
@@ -152,3 +160,18 @@ class TestDescribeMismatch:
         b = _make_probe(vcodec="hevc", fps=30.0)
         msgs = describe_mismatch(a, b)
         assert len(msgs) >= 2
+
+    def test_container_mismatch_described(self) -> None:
+        a = _make_probe()
+        b = _make_probe()
+        b.path = Path("fake.mp4")
+
+        assert "container: matroska vs mp4" in describe_mismatch(a, b)
+
+
+def test_container_family_prefers_ffprobe_format_name() -> None:
+    probe = _make_probe()
+    probe.path = Path("fake.bin")
+    probe.raw = {"format": {"format_name": "mov,mp4,m4a,3gp,3g2,mj2"}}
+
+    assert container_family(probe) == "mp4"

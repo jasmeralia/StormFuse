@@ -69,3 +69,27 @@ def test_apply_title_bar_theme_uses_windows_dwm_api(qtbot: QtBot, monkeypatch) -
 
     assert theme.apply_title_bar_theme(widget, "dark") is True
     assert calls == [(int(widget.winId()), 20, 1)]
+
+
+def test_apply_title_bar_theme_skips_child_widgets(qtbot: QtBot, monkeypatch) -> None:
+    calls: list[object] = []
+
+    class _FakeDwmApi:
+        def DwmSetWindowAttribute(self, *_args) -> int:
+            calls.append(_args)
+            return 0
+
+    monkeypatch.setattr(theme.sys, "platform", "win32")
+    monkeypatch.setattr(
+        theme.ctypes,
+        "windll",
+        SimpleNamespace(dwmapi=_FakeDwmApi()),
+        raising=False,
+    )
+
+    parent = QWidget()
+    child = QWidget(parent)
+    qtbot.addWidget(parent)
+
+    assert theme.apply_title_bar_theme(child, "dark") is False
+    assert calls == []

@@ -53,6 +53,29 @@ class TestMakeConcatPlan:
         assert len(plan.normalize_indices) == 0
         assert len(plan.mismatches) == 0
 
+    def test_mixed_mp4_and_mkv_normalizes_mp4_even_when_streams_match(self) -> None:
+        mkv = _probe("a.mkv")
+        mp4 = _probe("b.mp4")
+
+        plan = make_concat_plan([mkv, mp4])
+
+        assert plan.strategy == ConcatStrategy.NORMALIZE_THEN_CONCAT
+        assert plan.copy_indices == [0]
+        assert plan.normalize_indices == [1]
+        assert any(
+            "container" in field for mismatch in plan.mismatches for field in mismatch.fields
+        )
+
+    def test_copy_eligible_in_normalize_plan_must_be_matroska(self) -> None:
+        mp4_matching_target = _probe("a.mp4", width=1920, height=1080)
+        mkv_needs_resize = _probe("b.mkv", width=1280, height=720)
+
+        plan = make_concat_plan([mp4_matching_target, mkv_needs_resize])
+
+        assert plan.strategy == ConcatStrategy.NORMALIZE_THEN_CONCAT
+        assert plan.copy_indices == []
+        assert plan.normalize_indices == [0, 1]
+
     def test_resolution_mismatch_normalizes_only_non_matching_inputs(self) -> None:
         a = _probe("a.mkv", width=1920, height=1080)
         b = _probe("b.mkv", width=1280, height=720)

@@ -171,6 +171,8 @@ def apply_title_bar_theme(widget: QWidget, mode: ResolvedThemeMode | None = None
     """Apply dark-mode title bar styling on supported Windows builds."""
     if sys.platform != "win32":
         return False
+    if not widget.isWindow():
+        return False
 
     resolved = mode or current_resolved_theme()
     try:

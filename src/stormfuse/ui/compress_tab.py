@@ -278,7 +278,8 @@ class CompressTab(QWidget):
     def _set_input_path(self, path: Path) -> None:
         self._input_field.setText(str(path))
         if not self._out_filename.text():
-            self._out_filename.setText(f"{path.stem}-compressed.mp4")
+            stem = path.stem.removesuffix("-combined")
+            self._out_filename.setText(f"{stem}-compressed.mp4")
         if not self._out_folder.text():
             self._out_folder.setText(str(path.parent))
         self._start_probe(path)

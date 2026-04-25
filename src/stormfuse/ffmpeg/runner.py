@@ -78,7 +78,6 @@ def _progress_reader(
 ) -> None:
     try:
         last_emit = 0.0
-        block: list[str] = []
 
         while not done_event.is_set():
             try:
@@ -88,15 +87,24 @@ def _progress_reader(
                 time.sleep(0.1)
                 continue
 
-            lines = content.splitlines()
-            block = []
-            for line in lines:
-                if not line.startswith("progress="):
+            # ffmpeg appends progress blocks to the file; find only the last
+            # complete block so the rate limiter in _emit_progress_block always
+            # sees current values instead of replaying the very first block.
+            last_block: list[str] = []
+            last_marker = ""
+            block: list[str] = []
+            for line in content.splitlines():
+                if line.startswith("progress="):
+                    last_block = block
+                    last_marker = line
+                    block = []
+                else:
                     block.append(line)
-                    continue
 
-                last_emit = _emit_progress_block(line, block, last_emit, on_progress, job_id)
-                block = []
+            if last_marker:
+                last_emit = _emit_progress_block(
+                    last_marker, last_block, last_emit, on_progress, job_id
+                )
 
             time.sleep(0.25)
     except Exception as exc:

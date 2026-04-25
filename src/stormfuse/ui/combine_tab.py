@@ -108,7 +108,7 @@ class CombineTab(QWidget):
         self._strategy_details.setObjectName("strategyDetails")
         self._strategy_details.setWordWrap(True)
         self._strategy_details.setVisible(False)
-        self._strategy_details.setStyleSheet("QLabel { color: #334155; padding: 0 0 0 28px; }")
+        self._strategy_details.setStyleSheet("QLabel { padding: 0 0 0 28px; }")
 
         preview_layout = QVBoxLayout()
         preview_layout.setContentsMargins(0, 0, 0, 0)

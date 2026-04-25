@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.13] - 2026-04-25
+
+### Fixed
+
+#### Compress progress tracking (§7.7)
+- Progress reader now emits the *last* complete block from the ffmpeg `-progress` file instead of always replaying the first block; previously the rate-limiter caused `out_time_sec` and `frame` to freeze at the initial values for the entire job
+
+#### UI — strategy preview readability (§5)
+- Removed hardcoded `color: #334155` from the expanded strategy details label; text now inherits the system palette colour and is readable in both dark and light mode
+
+#### Compress output filename (§5.2)
+- Default output filename strips a trailing `-combined` suffix before appending `-compressed`, so `foo-combined.mkv` compresses to `foo-compressed.mp4` instead of `foo-combined-compressed.mp4`
+
 ## [1.0.12] - 2026-04-25
 
 ### Changed

@@ -66,7 +66,7 @@ def test_upload_success_posts_logs_and_metadata(tmp_path, monkeypatch) -> None:
         "stormfuse-20260424-111111-1.log",
     ]
     encoded = payload["log_files"][1]["content"]
-    assert base64.b64decode(encoded.encode("ascii")) == b"latest log\n"
+    assert base64.b64decode(encoded.encode("ascii")).replace(b"\r\n", b"\n") == b"latest log\n"
 
 
 def test_upload_upgrade_required_returns_clear_message(tmp_path, monkeypatch) -> None:

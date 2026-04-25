@@ -52,7 +52,7 @@ format:
 	$(PY) -m ruff check --fix src/ tests/
 
 test:
-	$(PY) -m pytest tests/unit/ -v --cov=stormfuse --cov-report=xml
+	$(PY) -m pytest tests/unit/ -v --cov=stormfuse --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
 
 test-functional:
 	$(PY) -m pytest tests/functional/ -v
@@ -67,7 +67,7 @@ installer:
 	makensis build/installer/stormfuse.nsi
 
 clean:
-	rm -rf dist/ .pytest_cache/ .venv/ .mypy_cache/ .ruff_cache/ coverage.xml
+	rm -rf dist/ .pytest_cache/ .venv/ .mypy_cache/ .ruff_cache/ coverage.xml junit.xml
 	@if [ -d build ]; then \
 		find build -mindepth 1 -maxdepth 1 \
 			! -name installer \

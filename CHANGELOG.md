@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-04-25
+
+### Changed
+
+#### Release pipeline (§16)
+- `make test` now emits both `coverage.xml` and `junit.xml` so CI can publish coverage and test-result reports from the canonical Makefile target
+- CI and release validation optionally upload coverage and JUnit results to Codecov when `CODECOV_TOKEN` is configured, without making Codecov availability a release blocker
+- GitHub Releases now use changelog-derived release notes and are published as prereleases for updater-aware rollout
+
 ## [1.0.5] - 2026-04-24
 
 ### Added

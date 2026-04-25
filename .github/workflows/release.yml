@@ -22,6 +22,8 @@ jobs:
     name: Lint & Test
     if: github.event_name == 'push' || inputs.tag != ''
     runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -58,6 +60,26 @@ jobs:
         with:
           name: coverage
           path: coverage.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        if: ${{ env.CODECOV_TOKEN != '' }}
+        with:
+          token: ${{ env.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: unittests
+          verbose: true
+          fail_ci_if_error: false
+
+      - name: Upload test results to Codecov
+        uses: codecov/codecov-action@v5
+        if: ${{ env.CODECOV_TOKEN != '' && !cancelled() }}
+        with:
+          token: ${{ env.CODECOV_TOKEN }}
+          files: junit.xml
+          report_type: test_results
+          verbose: true
+          fail_ci_if_error: false
 
   build-installer:
     name: Build Installer
@@ -144,12 +166,71 @@ jobs:
       - name: List release assets
         run: find . -name "StormFuse-Setup-*.exe" -print
 
+      - name: Generate release notes from changelog
+        id: release_notes
+        run: |
+          PREV_TAG=$(python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          repo = os.environ.get("GITHUB_REPOSITORY")
+          current = os.environ.get("CURRENT_TAG", "")
+          url = f"https://api.github.com/repos/{repo}/releases?per_page=20"
+
+          tag = ""
+          try:
+              with urllib.request.urlopen(url, timeout=10) as resp:
+                  data = json.load(resp)
+              for release in data:
+                  if release.get("draft"):
+                      continue
+                  rel_tag = release.get("tag_name", "")
+                  if rel_tag and rel_tag != current:
+                      tag = rel_tag
+                      break
+          except Exception:
+              tag = ""
+
+          if not tag:
+              tags = os.popen("git tag --sort=-v:refname").read().strip().splitlines()
+              for rel_tag in tags:
+                  if rel_tag and rel_tag != current:
+                      tag = rel_tag
+                      break
+
+          print(tag)
+          PY
+          )
+          CURRENT_TAG="${{ env.TAG_NAME }}"
+
+          CHANGELOG_SECTION=""
+          if [ -f CHANGELOG.md ]; then
+            CHANGELOG_SECTION=$(PREV_TAG="$PREV_TAG" CURRENT_TAG="$CURRENT_TAG" python scripts/release_notes.py)
+          fi
+
+          {
+            echo "body<<RELEASE_EOF"
+            if [ -n "$CHANGELOG_SECTION" ]; then
+              echo "## What's Changed"
+              echo ""
+              echo "$CHANGELOG_SECTION"
+              echo ""
+            fi
+            echo "---"
+            echo ""
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${CURRENT_TAG}"
+            echo "RELEASE_EOF"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          CURRENT_TAG: ${{ env.TAG_NAME }}
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           draft: false
-          prerelease: false
-          generate_release_notes: true
+          prerelease: true
           tag_name: ${{ env.TAG_NAME }}
+          body: ${{ steps.release_notes.outputs.body }}
           files: |
             **/StormFuse-Setup-*.exe

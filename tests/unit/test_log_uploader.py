@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 
+from stormfuse.config import APP_VERSION
 from stormfuse.core import log_uploader
 from stormfuse.core.log_uploader import LogUploader, _UploadResponse
 from stormfuse.ffmpeg.encoders import EncoderChoice
@@ -53,7 +54,7 @@ def test_upload_success_posts_logs_and_metadata(tmp_path, monkeypatch) -> None:
     assert captured["endpoint"] == "https://stormfuse.example/logs/upload"
 
     payload = captured["payload"]
-    assert payload["app_version"] == "1.0.5"
+    assert payload["app_version"] == APP_VERSION
     assert payload["user_notes"] == "Clicked Combine and ffmpeg failed."
     assert payload["hostname"] == "DESKTOP-TEST"
     assert payload["username"] == "morgan"

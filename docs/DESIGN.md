@@ -525,7 +525,7 @@ handler pair to keep them in lockstep.
 | `update.check.start` / `update.check.available` / `update.check.none` / `update.check.error` | INFO / INFO / INFO / WARNING | application update check lifecycle |
 | `update.download.start` / `update.download.success` / `update.download.error` | INFO / INFO / WARNING | installer download lifecycle |
 | `update.launch` / `update.launch.error` | INFO / WARNING | installer launch result |
-| `logs.upload.start` / `logs.upload.success` / `logs.upload.fail` / `logs.upload.disabled` / `logs.upload.skip` | INFO / INFO / WARNING / INFO / WARNING | diagnostic log submission lifecycle |
+| `logs.upload.start` / `logs.upload.file` / `logs.upload.success` / `logs.upload.fail` / `logs.upload.disabled` | INFO / DEBUG / INFO / WARNING / INFO | diagnostic log submission lifecycle; any file read/upload failure fails the submission |
 | `logs.clear.partial` | WARNING | individual log file could not be deleted during Clear Log Files |
 | `logs.clear` | INFO | user invoked Clear Log Files |
 

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.18] - 2026-04-25
+
+### Changed
+
+#### Log upload (§9)
+- Per-file upload failures (missing presigned URL, file read error, S3 PUT error) now abort the entire submission and return an error to the user; previously individual file failures were silently skipped and the upload was marked successful
+- Per-file failure events now emit `logs.upload.fail` (WARNING) instead of the former `logs.upload.skip`; per-file successes emit `logs.upload.file` (DEBUG)
+
+#### Docs / tooling
+- Added CI, Release Build, Release, and Coverage badges to README
+- Fixed doubled-path typo (`docs/docs/DESIGN.md`) in AGENTS.md; added README badge step to release checklist
+
 ## [1.0.17] - 2026-04-23
 
 ### Changed

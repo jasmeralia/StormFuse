@@ -244,3 +244,106 @@ def test_upload_complete_failure_returns_message(tmp_path, monkeypatch) -> None:
 
     assert not success
     assert "500" in message
+
+
+def test_upload_file_put_failure_returns_error_without_completing(tmp_path, monkeypatch) -> None:
+    log_file = tmp_path / "latest.log"
+    log_file.write_text("log\n", encoding="utf-8")
+
+    post_calls: list[str] = []
+
+    def fake_post_json(self, url, payload):
+        post_calls.append(url)
+        if url.endswith("/logs/upload"):
+            return _make_init_response(payload.get("filenames", []))
+        return _make_complete_response()
+
+    monkeypatch.setattr(LogUploader, "_post_json", fake_post_json)
+    monkeypatch.setattr(
+        LogUploader,
+        "_put_bytes",
+        lambda *_a, **_kw: (_ for _ in ()).throw(ConnectionError("S3 PUT failed: HTTP 307")),
+    )
+    monkeypatch.setattr(log_uploader.socket, "gethostname", lambda: "H")
+    monkeypatch.setattr(log_uploader.getpass, "getuser", lambda: "u")
+    monkeypatch.setattr(log_uploader.platform, "platform", lambda: "W")
+
+    uploader = LogUploader(log_dir=tmp_path, enabled=True, encoder=EncoderChoice.NVENC)
+
+    success, message = uploader.upload("notes")
+
+    assert not success
+    assert "1 log file" in message
+    assert post_calls == ["https://stormfuse.jasmer.tools/logs/upload"]
+
+
+def test_upload_missing_presigned_url_returns_error_without_completing(
+    tmp_path, monkeypatch
+) -> None:
+    log_file = tmp_path / "latest.log"
+    log_file.write_text("log\n", encoding="utf-8")
+
+    post_calls: list[str] = []
+    put_calls: list[str] = []
+
+    def fake_post_json(self, url, payload):
+        post_calls.append(url)
+        if url.endswith("/logs/upload"):
+            return _UploadResponse(
+                status_code=200,
+                body=json.dumps({"upload_id": "test-uuid", "presigned_urls": []}),
+            )
+        return _make_complete_response()
+
+    monkeypatch.setattr(LogUploader, "_post_json", fake_post_json)
+    monkeypatch.setattr(
+        LogUploader, "_put_bytes", lambda self, url, data, ct: put_calls.append(url)
+    )
+    monkeypatch.setattr(log_uploader.socket, "gethostname", lambda: "H")
+    monkeypatch.setattr(log_uploader.getpass, "getuser", lambda: "u")
+    monkeypatch.setattr(log_uploader.platform, "platform", lambda: "W")
+
+    uploader = LogUploader(log_dir=tmp_path, enabled=True, encoder=EncoderChoice.NVENC)
+
+    success, message = uploader.upload("notes")
+
+    assert not success
+    assert "1 log file" in message
+    assert post_calls == ["https://stormfuse.jasmer.tools/logs/upload"]
+    assert put_calls == []
+
+
+def test_upload_partial_file_failure_keeps_submission_failed(tmp_path, monkeypatch) -> None:
+    first = tmp_path / "latest.log"
+    second = tmp_path / "stormfuse-20260424-111111-1.log"
+    first.write_text("latest\n", encoding="utf-8")
+    second.write_text("session\n", encoding="utf-8")
+
+    post_calls: list[str] = []
+    put_calls: list[str] = []
+
+    def fake_post_json(self, url, payload):
+        post_calls.append(url)
+        if url.endswith("/logs/upload"):
+            return _make_init_response(payload.get("filenames", []))
+        return _make_complete_response()
+
+    def fake_put_bytes(self, url, data, content_type):
+        put_calls.append(url)
+        if "stormfuse-20260424-111111-1.log" in url:
+            raise ConnectionError("S3 PUT failed: HTTP 307")
+
+    monkeypatch.setattr(LogUploader, "_post_json", fake_post_json)
+    monkeypatch.setattr(LogUploader, "_put_bytes", fake_put_bytes)
+    monkeypatch.setattr(log_uploader.socket, "gethostname", lambda: "H")
+    monkeypatch.setattr(log_uploader.getpass, "getuser", lambda: "u")
+    monkeypatch.setattr(log_uploader.platform, "platform", lambda: "W")
+
+    uploader = LogUploader(log_dir=tmp_path, enabled=True, encoder=EncoderChoice.NVENC)
+
+    success, message = uploader.upload("notes")
+
+    assert not success
+    assert "1 log file" in message
+    assert len(put_calls) == 2
+    assert post_calls == ["https://stormfuse.jasmer.tools/logs/upload"]

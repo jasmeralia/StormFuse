@@ -14,8 +14,8 @@ a single video to fit under a size ceiling (MFC Share's 10 GB upload limit).
 NVENC is preferred; `libx264` is the silent fallback. Process boundary is the
 only coupling to ffmpeg — no native ffmpeg bindings.
 
-**The full specification is in `docs/docs/DESIGN.md`.** Do not re-derive design decisions;
-consult docs/docs/DESIGN.md and update it if scope shifts.
+**The full specification is in `docs/DESIGN.md`.** Do not re-derive design decisions;
+consult docs/DESIGN.md and update it if scope shifts.
 
 ---
 
@@ -23,7 +23,7 @@ consult docs/docs/DESIGN.md and update it if scope shifts.
 
 | Path | Purpose |
 |------|---------|
-| `docs/docs/DESIGN.md` | Authoritative spec. Read before implementation work. |
+| `docs/DESIGN.md` | Authoritative spec. Read before implementation work. |
 | `README.md` | End-user-facing docs. |
 | `src/stormfuse/` | App source. Subpackages: `core/`, `ffmpeg/`, `jobs/`, `ui/`. |
 | `src/stormfuse/core/` | UI-agnostic app services shared by the UI layer. |
@@ -204,10 +204,13 @@ value automatically:
 2. `make test` — all 152+ unit tests must pass.
 3. Bump `APP_VERSION` in `src/stormfuse/config.py`.
 4. Add a new version entry at the top of `CHANGELOG.md` following Keep a Changelog format.
-5. Commit with message: `Release vX.Y.Z` (subject line) plus a body summarising
+5. Update the README release-build badge `branch=vX.Y.Z` query parameter to the
+   same tag. This badge is intentionally pinned manually to the current release
+   tag.
+6. Commit with message: `Release vX.Y.Z` (subject line) plus a body summarising
    what changed (reference docs/DESIGN.md sections where relevant).
-6. Tag: `git tag vX.Y.Z`.
-7. Push branch and tag: `git push && git push --tags`.
+7. Tag: `git tag vX.Y.Z`.
+8. Push branch and tag: `git push && git push --tags`.
 
 ## 11. Commit, branch, PR conventions
 

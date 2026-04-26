@@ -145,10 +145,24 @@ class LogUploader:
             if isinstance(item, dict) and "filename" in item and "url" in item
         }
 
+        failed_files: list[str] = []
+
         # Step 2: Gzip-compress and PUT each file directly to S3.
         for path in file_paths:
             url = presigned_urls.get(path.name)
             if not url:
+                failed_files.append(path.name)
+                log.warning(
+                    "Log upload failed because no presigned URL was returned",
+                    extra={
+                        "event": "logs.upload.fail",
+                        "ctx": {
+                            "filename": path.name,
+                            "upload_id": upload_id,
+                            "reason": "missing_presigned_url",
+                        },
+                    },
+                )
                 continue
             try:
                 compressed = gzip.compress(path.read_bytes(), compresslevel=6)
@@ -161,21 +175,40 @@ class LogUploader:
                     },
                 )
             except OSError as exc:
+                failed_files.append(path.name)
                 log.warning(
                     "Could not read log file for upload",
                     extra={
-                        "event": "logs.upload.skip",
-                        "ctx": {"path": str(path), "error": str(exc)},
+                        "event": "logs.upload.fail",
+                        "ctx": {
+                            "path": str(path),
+                            "filename": path.name,
+                            "upload_id": upload_id,
+                            "reason": "file_read_failed",
+                            "error": str(exc),
+                        },
                     },
                 )
             except Exception as exc:
+                failed_files.append(path.name)
                 log.warning(
                     "Failed to upload log file",
                     extra={
-                        "event": "logs.upload.skip",
-                        "ctx": {"filename": path.name, "upload_id": upload_id, "error": str(exc)},
+                        "event": "logs.upload.fail",
+                        "ctx": {
+                            "filename": path.name,
+                            "upload_id": upload_id,
+                            "reason": "file_upload_failed",
+                            "error": str(exc),
+                        },
                     },
                 )
+
+        if failed_files:
+            return (
+                False,
+                f"Upload failed for {len(failed_files)} log file(s). Logs were not cleared.",
+            )
 
         # Step 3: Signal completion so the Lambda sends the notification email.
         complete_resp = self._post_json(

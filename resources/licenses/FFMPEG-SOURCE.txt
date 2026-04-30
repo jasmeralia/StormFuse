@@ -4,16 +4,16 @@ FFmpeg — Bundled Binary Attribution (GPL v2 §3 compliance)
 Upstream project : FFmpeg (https://ffmpeg.org)
 Build provider   : Gyan Doshi (https://www.gyan.dev/ffmpeg/builds/)
 Build variant    : essentials_build
-Version          : 7.1.1
-Release date     : 2025-03-12
-Source commit    : db69d06
-Release tag      : https://github.com/GyanD/codexffmpeg/releases/tag/7.1.1
-Archive URL      : https://github.com/GyanD/codexffmpeg/releases/download/7.1.1/ffmpeg-7.1.1-essentials_build.zip
+Version          : 8.1
+Release date     : 2026-03-17
+Source commit    : 9047fa1b08
+Release tag      : https://github.com/GyanD/codexffmpeg/releases/tag/8.1
+Archive URL      : https://github.com/GyanD/codexffmpeg/releases/download/8.1/ffmpeg-8.1-essentials_build.zip
 
 Pinned archive SHA-256
 ----------------------
-ffmpeg-7.1.1-essentials_build.zip :
-  04861d3339c5ebe38b56c19a15cf2c0cc97f5de4fa8910e4d47e5e6404e4a2d4
+ffmpeg-8.1-essentials_build.zip :
+  8748283d821613d930b0e7be685aaa9df4ca6f0ad4d0c42fd02622b3623463c6
 
 Bundled executables
 -------------------

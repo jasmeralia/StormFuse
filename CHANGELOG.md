@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.19] - 2026-04-29
+
+### Changed
+
+#### Combine workflow (§5.1, §7.6)
+- Mixed MP4/MKV inputs and stream mismatches now use the PowerShell v2-compatible normalize-all path before concatenation; matching MKV inputs still use the v1 stream-copy path
+- Strategy preview and progress weighting now reflect normalize-all combine jobs
+
+#### FFmpeg bundle (§7.1)
+- Updated the pinned bundled Gyan FFmpeg essentials build from 7.1.1 to 8.1
+
+#### Docs / tooling
+- Corrected AGENTS.md to document `master` as the default branch
+
 ## [1.0.18] - 2026-04-25
 
 ### Changed

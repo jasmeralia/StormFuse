@@ -34,8 +34,8 @@ class ConcatPlan:
     strategy: ConcatStrategy
     inputs: list[FileProbe]
     target_sig: VideoSignature | None  # only set for NORMALIZE_THEN_CONCAT
-    copy_indices: list[int]  # indices that can remain on stream-copy path
-    normalize_indices: list[int]  # indices that need re-encoding
+    copy_indices: list[int]  # populated only when the whole job is stream-copy
+    normalize_indices: list[int]  # populated with every input on normalize jobs
     mismatches: list[MismatchDetail]  # populated for NORMALIZE_THEN_CONCAT
 
     def to_log_ctx(self) -> dict[str, object]:
@@ -104,28 +104,6 @@ def _pick_target(probes: list[FileProbe]) -> VideoSignature | None:
     )
 
 
-def _copy_eligible(
-    probe: FileProbe,
-    target_sig: VideoSignature,
-    *,
-    fps_tolerance: float,
-) -> bool:
-    """Return True if *probe* already matches the normalize output signature."""
-    video = probe.video
-    audio = audio_signature(probe)
-    if video is None or audio is None:
-        return False
-    return (
-        container_family(probe) == "matroska"
-        and video.codec == target_sig.codec
-        and video.width == target_sig.width
-        and video.height == target_sig.height
-        and video.pix_fmt == target_sig.pix_fmt
-        and abs(video.fps - target_sig.fps) <= fps_tolerance
-        and audio == _NORMALIZED_AUDIO_SIG
-    )
-
-
 def _describe_target_mismatch(
     probe: FileProbe,
     target_sig: VideoSignature,
@@ -180,7 +158,7 @@ def make_concat_plan(probes: list[FileProbe], *, fps_tolerance: float = 0.01) ->
     all_match = all(
         signatures_match(reference, probe, fps_tolerance=fps_tolerance) for probe in probes[1:]
     )
-    if all_match:
+    if all_match and container_family(reference) == "matroska":
         return ConcatPlan(
             strategy=ConcatStrategy.STREAM_COPY,
             inputs=probes,
@@ -194,32 +172,27 @@ def make_concat_plan(probes: list[FileProbe], *, fps_tolerance: float = 0.01) ->
     if target_sig is None:
         raise ValueError("Cannot normalize concat inputs without a video stream")
 
-    copy_indices: list[int] = []
-    normalize_indices: list[int] = []
     mismatches: list[MismatchDetail] = []
     for index, probe in enumerate(probes):
-        if _copy_eligible(probe, target_sig, fps_tolerance=fps_tolerance):
-            copy_indices.append(index)
-            continue
-
-        mismatches.append(
-            MismatchDetail(
-                input_index=index,
-                path=probe.path,
-                fields=_describe_target_mismatch(
-                    probe,
-                    target_sig,
-                    fps_tolerance=fps_tolerance,
-                ),
-            )
+        fields = _describe_target_mismatch(
+            probe,
+            target_sig,
+            fps_tolerance=fps_tolerance,
         )
-        normalize_indices.append(index)
+        if fields:
+            mismatches.append(
+                MismatchDetail(
+                    input_index=index,
+                    path=probe.path,
+                    fields=fields,
+                )
+            )
 
     return ConcatPlan(
         strategy=ConcatStrategy.NORMALIZE_THEN_CONCAT,
         inputs=probes,
         target_sig=target_sig,
-        copy_indices=copy_indices,
-        normalize_indices=normalize_indices,
+        copy_indices=[],
+        normalize_indices=list(range(len(probes))),
         mismatches=mismatches,
     )

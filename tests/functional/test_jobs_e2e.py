@@ -103,7 +103,7 @@ def test_combine_normalize_end_to_end(
         record for record in caplog.records if getattr(record, "event", None) == "concat.decision"
     )
     assert decision.ctx["strategy"] == "NORMALIZE_THEN_CONCAT"
-    assert decision.ctx["normalize_count"] == 1
+    assert decision.ctx["normalize_count"] == 2
 
 
 @pytest.mark.windows_only

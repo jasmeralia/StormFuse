@@ -30,11 +30,11 @@ def test_pinned_archive_hash_matches_configured_download() -> None:
     expected = module.load_expected_hashes()
 
     assert expected == {
-        "ffmpeg-7.1.1-essentials_build.zip": (
-            "04861d3339c5ebe38b56c19a15cf2c0cc97f5de4fa8910e4d47e5e6404e4a2d4"
+        "ffmpeg-8.1-essentials_build.zip": (
+            "8748283d821613d930b0e7be685aaa9df4ca6f0ad4d0c42fd02622b3623463c6"
         )
     }
-    assert module.FFMPEG_URL.endswith("ffmpeg-7.1.1-essentials_build.zip")
+    assert module.FFMPEG_URL.endswith("ffmpeg-8.1-essentials_build.zip")
 
 
 def test_ffmpeg_source_notice_has_no_unresolved_placeholders() -> None:
@@ -43,8 +43,8 @@ def test_ffmpeg_source_notice_has_no_unresolved_placeholders() -> None:
     ).read_text(encoding="utf-8")
 
     assert "(update after make fetch-ffmpeg)" not in source_notice
-    assert "04861d3339c5ebe38b56c19a15cf2c0cc97f5de4fa8910e4d47e5e6404e4a2d4" in source_notice
-    assert "Source commit    : db69d06" in source_notice
+    assert "8748283d821613d930b0e7be685aaa9df4ca6f0ad4d0c42fd02622b3623463c6" in source_notice
+    assert "Source commit    : 9047fa1b08" in source_notice
 
 
 def test_fetch_ffmpeg_uses_original_download_filename_on_redirect(
@@ -59,8 +59,8 @@ def test_fetch_ffmpeg_uses_original_download_filename_on_redirect(
 
     archive_buffer = io.BytesIO()
     with zipfile.ZipFile(archive_buffer, "w") as archive:
-        archive.writestr("ffmpeg-7.1.1-essentials_build/bin/ffmpeg.exe", b"ffmpeg-binary")
-        archive.writestr("ffmpeg-7.1.1-essentials_build/bin/ffprobe.exe", b"ffprobe-binary")
+        archive.writestr("ffmpeg-8.1-essentials_build/bin/ffmpeg.exe", b"ffmpeg-binary")
+        archive.writestr("ffmpeg-8.1-essentials_build/bin/ffprobe.exe", b"ffprobe-binary")
     archive_bytes = archive_buffer.getvalue()
     archive_sha = hashlib.sha256(archive_bytes).hexdigest()
     sha256_file.write_text(f"{archive_sha}  {archive_name}\n", encoding="utf-8")

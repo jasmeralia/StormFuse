@@ -39,13 +39,13 @@ class TestMakeConcatPlan:
         with pytest.raises(ValueError):
             make_concat_plan([])
 
-    def test_single_input_stream_copy(self) -> None:
+    def test_single_mkv_input_stream_copy(self) -> None:
         plan = make_concat_plan([_probe()])
         assert plan.strategy == ConcatStrategy.STREAM_COPY
         assert plan.copy_indices == [0]
         assert plan.normalize_indices == []
 
-    def test_identical_inputs_stream_copy(self) -> None:
+    def test_identical_mkv_inputs_stream_copy(self) -> None:
         probes = [_probe(f"{i}.mkv") for i in range(3)]
         plan = make_concat_plan(probes)
         assert plan.strategy == ConcatStrategy.STREAM_COPY
@@ -53,15 +53,22 @@ class TestMakeConcatPlan:
         assert len(plan.normalize_indices) == 0
         assert len(plan.mismatches) == 0
 
-    def test_mixed_mp4_and_mkv_normalizes_mp4_even_when_streams_match(self) -> None:
+    def test_identical_mp4_inputs_normalize_all_inputs(self) -> None:
+        probes = [_probe(f"{i}.mp4") for i in range(3)]
+        plan = make_concat_plan(probes)
+        assert plan.strategy == ConcatStrategy.NORMALIZE_THEN_CONCAT
+        assert plan.copy_indices == []
+        assert plan.normalize_indices == [0, 1, 2]
+
+    def test_mixed_mp4_and_mkv_normalizes_all_inputs(self) -> None:
         mkv = _probe("a.mkv")
         mp4 = _probe("b.mp4")
 
         plan = make_concat_plan([mkv, mp4])
 
         assert plan.strategy == ConcatStrategy.NORMALIZE_THEN_CONCAT
-        assert plan.copy_indices == [0]
-        assert plan.normalize_indices == [1]
+        assert plan.copy_indices == []
+        assert plan.normalize_indices == [0, 1]
         assert any(
             "container" in field for mismatch in plan.mismatches for field in mismatch.fields
         )
@@ -76,29 +83,29 @@ class TestMakeConcatPlan:
         assert plan.copy_indices == []
         assert plan.normalize_indices == [0, 1]
 
-    def test_resolution_mismatch_normalizes_only_non_matching_inputs(self) -> None:
+    def test_resolution_mismatch_normalizes_all_inputs(self) -> None:
         a = _probe("a.mkv", width=1920, height=1080)
         b = _probe("b.mkv", width=1280, height=720)
         plan = make_concat_plan([a, b])
         assert plan.strategy == ConcatStrategy.NORMALIZE_THEN_CONCAT
-        assert plan.copy_indices == [0]
-        assert plan.normalize_indices == [1]
+        assert plan.copy_indices == []
+        assert plan.normalize_indices == [0, 1]
 
     def test_fps_mismatch_normalize(self) -> None:
         a = _probe("a.mkv", fps=60.0)
         b = _probe("b.mkv", fps=30.0)
         plan = make_concat_plan([a, b])
         assert plan.strategy == ConcatStrategy.NORMALIZE_THEN_CONCAT
-        assert plan.copy_indices == [0]
-        assert plan.normalize_indices == [1]
+        assert plan.copy_indices == []
+        assert plan.normalize_indices == [0, 1]
 
     def test_codec_mismatch_normalize(self) -> None:
         a = _probe("a.mkv", vcodec="h264")
         b = _probe("b.mkv", vcodec="hevc")
         plan = make_concat_plan([a, b])
         assert plan.strategy == ConcatStrategy.NORMALIZE_THEN_CONCAT
-        assert plan.copy_indices == [0]
-        assert plan.normalize_indices == [1]
+        assert plan.copy_indices == []
+        assert plan.normalize_indices == [0, 1]
 
     def test_target_sig_uses_largest_dimensions_with_normalize_output_format(self) -> None:
         small = _probe("small.mkv", width=1280, height=720)
@@ -118,13 +125,13 @@ class TestMakeConcatPlan:
         assert plan.strategy == ConcatStrategy.STREAM_COPY
         assert plan.target_sig is None
 
-    def test_larger_input_stays_copy_eligible_only_if_it_matches_normalize_output(self) -> None:
+    def test_larger_input_picks_target_but_all_inputs_normalize(self) -> None:
         smaller = _probe("small.mkv", width=1280, height=720)
         larger = _probe("large.mkv", width=1920, height=1080)
         plan = make_concat_plan([smaller, larger])
         assert plan.strategy == ConcatStrategy.NORMALIZE_THEN_CONCAT
-        assert plan.copy_indices == [1]
-        assert plan.normalize_indices == [0]
+        assert plan.copy_indices == []
+        assert plan.normalize_indices == [0, 1]
 
     def test_log_ctx_serializable(self) -> None:
         a = _probe("a.mkv", width=1920)
@@ -132,10 +139,10 @@ class TestMakeConcatPlan:
         plan = make_concat_plan([a, b])
         ctx = plan.to_log_ctx()
         json.dumps(ctx)  # must not raise
-        assert ctx["copy_indices"] == [0]
-        assert ctx["normalize_indices"] == [1]
+        assert ctx["copy_indices"] == []
+        assert ctx["normalize_indices"] == [0, 1]
         assert ctx["inputs"] == [
-            {"index": 0, "path": "a.mkv", "action": "copy"},
+            {"index": 0, "path": "a.mkv", "action": "normalize"},
             {"index": 1, "path": "b.mkv", "action": "normalize"},
         ]
 
@@ -152,7 +159,7 @@ class TestMakeConcatPlan:
         needs_audio_normalize = _probe("b.mkv", width=1280, height=720, acodec="ac3")
         plan = make_concat_plan([needs_audio_normalize, copy_eligible])
         assert plan.strategy == ConcatStrategy.NORMALIZE_THEN_CONCAT
-        assert plan.copy_indices == [1]
-        assert plan.normalize_indices == [0]
+        assert plan.copy_indices == []
+        assert plan.normalize_indices == [0, 1]
         mismatch_fields = {field for mismatch in plan.mismatches for field in mismatch.fields}
         assert any("audio codec" in field.lower() for field in mismatch_fields)

@@ -359,7 +359,6 @@ class CombineTab(QWidget):
             return
 
         assert plan.target_sig is not None
-        copy_names = [plan.inputs[index].path.name for index in plan.copy_indices]
         normalize_names = [plan.inputs[index].path.name for index in plan.normalize_indices]
         detail_lines = [
             (
@@ -367,7 +366,6 @@ class CombineTab(QWidget):
                 f"{plan.target_sig.width}x{plan.target_sig.height}"
                 f"@{plan.target_sig.fps:.2f} {plan.target_sig.codec}/aac"
             ),
-            "Copy path: " + (", ".join(copy_names) if copy_names else "none"),
             "Normalize: " + (", ".join(normalize_names) if normalize_names else "none"),
         ]
         why_lines = [

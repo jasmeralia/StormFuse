@@ -63,6 +63,39 @@ def test_stream_copy_progress_uses_concat_fraction(
     assert progress_events == [(0.5, "Stream-copy concat…")]
 
 
+def test_mixed_mp4_and_mkv_uses_v2_normalize_all_behavior(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mkv_probe = _probe(tmp_path / "matching.mkv", duration=10.0)
+    mp4_probe = _probe(tmp_path / "matching.mp4", duration=10.0)
+    probes = {probe.path: probe for probe in (mkv_probe, mp4_probe)}
+    job = CombineJob(
+        ffmpeg_exe=tmp_path / "ffmpeg.exe",
+        ffprobe_exe=tmp_path / "ffprobe.exe",
+        inputs=[mkv_probe.path, mp4_probe.path],
+        output=tmp_path / "combined.mkv",
+        encoder=EncoderChoice.LIBX264,
+    )
+    output_paths: list[Path] = []
+
+    monkeypatch.setattr("stormfuse.jobs.combine.probe", lambda _ffprobe, path, **_kw: probes[path])
+
+    def fake_run_ffmpeg(*args: object, **_kwargs: object) -> RunResult:
+        output_path = Path(str(args[1][-1]))
+        output_paths.append(output_path)
+        output_path.write_text("output", encoding="utf-8")
+        return RunResult(argv=[], exit_code=0, duration_sec=0.01, stderr_tail="")
+
+    monkeypatch.setattr("stormfuse.jobs.combine.run_ffmpeg", fake_run_ffmpeg)
+
+    job._run_job()
+
+    assert len(output_paths) == 3
+    assert output_paths[0].name == "00_matching.mkv"
+    assert output_paths[1].name == "01_matching.mkv"
+    assert output_paths[2] == job.output
+
+
 def test_normalize_progress_weights_normalize_and_concat_by_duration(
     qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -78,8 +111,8 @@ def test_normalize_progress_weights_normalize_and_concat_by_duration(
             pix_fmt="yuv420p",
             fps=30.0,
         ),
-        copy_indices=[0],
-        normalize_indices=[1],
+        copy_indices=[],
+        normalize_indices=[0, 1],
         mismatches=[],
     )
     job = CombineJob(
@@ -106,11 +139,13 @@ def test_normalize_progress_weights_normalize_and_concat_by_duration(
 
     job._run_normalize_then_concat(plan)
 
-    assert len(progress_events) == 2
-    assert progress_events[0][0] == pytest.approx(0.1)
-    assert progress_events[0][1] == "Normalizing normalize.mp4…"
-    assert progress_events[1][0] == pytest.approx(0.6)
-    assert progress_events[1][1] == "Concatenating…"
+    assert len(progress_events) == 3
+    assert progress_events[0][0] == pytest.approx(0.0625)
+    assert progress_events[0][1] == "Normalizing copy.mkv…"
+    assert progress_events[1][0] == pytest.approx(0.4375)
+    assert progress_events[1][1] == "Normalizing normalize.mp4…"
+    assert progress_events[2][0] == pytest.approx(0.75)
+    assert progress_events[2][1] == "Concatenating…"
 
 
 def test_cancelled_normalize_concat_cleans_output_and_temp_dir(
@@ -128,8 +163,8 @@ def test_cancelled_normalize_concat_cleans_output_and_temp_dir(
             pix_fmt="yuv420p",
             fps=30.0,
         ),
-        copy_indices=[0],
-        normalize_indices=[1],
+        copy_indices=[],
+        normalize_indices=[0, 1],
         mismatches=[],
     )
     job = CombineJob(

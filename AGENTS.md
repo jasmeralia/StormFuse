@@ -214,7 +214,7 @@ value automatically:
 
 ## 11. Commit, branch, PR conventions
 
-- `main` is the default branch and must always be buildable and test-green.
+- `master` is the default branch and must always be buildable and test-green.
 - Feature work lands on topic branches; PRs require lint + unit green.
 - Commit messages: imperative mood, subject under 72 chars, optional body
   explaining *why*. Reference `docs/DESIGN.md` section numbers when a commit

@@ -88,16 +88,15 @@ def test_combine_tab_shows_normalize_preview_and_mismatch_tooltip(
     assert details_label is not None
     assert toggle is not None
 
-    qtbot.waitUntil(lambda: strategy_label.text() == "Will normalize 1 of 2 inputs")
-    assert strategy_label.text() == "Will normalize 1 of 2 inputs"
+    qtbot.waitUntil(lambda: strategy_label.text() == "Will normalize 2 of 2 inputs")
+    assert strategy_label.text() == "Will normalize 2 of 2 inputs"
     assert why_label.toolTip() == "b_20260417-205026.mkv: resolution: 1280x720 vs 1920x1080"
 
     toggle.click()
 
     assert details_label.isVisible()
     assert "Target normalize signature: 1920x1080@30.00 h264/aac" in details_label.text()
-    assert "Copy path: a_20260417-204926.mkv" in details_label.text()
-    assert "Normalize: b_20260417-205026.mkv" in details_label.text()
+    assert "Normalize: a_20260417-204926.mkv, b_20260417-205026.mkv" in details_label.text()
 
 
 def test_combine_tab_splits_default_output_filename_and_folder(

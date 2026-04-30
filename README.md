@@ -1,7 +1,7 @@
 # StormFuse
 
 ![CI](https://github.com/jasmeralia/StormFuse/actions/workflows/ci.yml/badge.svg?branch=master)
-![Release Build](https://img.shields.io/github/actions/workflow/status/jasmeralia/StormFuse/release.yml?event=push&branch=v1.0.18&label=Release%20Build)
+![Release Build](https://img.shields.io/github/actions/workflow/status/jasmeralia/StormFuse/release.yml?event=push&branch=v1.0.19&label=Release%20Build)
 ![Release](https://img.shields.io/github/v/release/jasmeralia/StormFuse?include_prereleases&sort=semver&label=Release)
 ![Coverage](https://codecov.io/gh/jasmeralia/StormFuse/branch/master/graph/badge.svg)
 

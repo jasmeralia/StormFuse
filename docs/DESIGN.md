@@ -149,7 +149,7 @@ described in §13.
 - No hidden filename-based preset (no "Rin / Club Show" template).
 
 **Stream-copy decision.** Before running, each input is probed. Stream-copy is
-chosen if and only if **every** input matches on:
+chosen if and only if **every** input is Matroska/MKV and matches on:
 
 - `codec_name` (video)
 - `width`
@@ -160,9 +160,10 @@ chosen if and only if **every** input matches on:
 - `sample_rate`
 - `channels`
 
-If any field mismatches, the **normalize-then-concat** strategy is used:
+If any field mismatches, or if otherwise matching inputs mix MKV with MP4, the
+**normalize-then-concat** strategy is used:
 - Target format = the input with the largest pixel count, tiebreak by highest fps.
-- Each non-matching input is re-encoded to an intermediate MKV in a temp dir
+- Every input is re-encoded to an intermediate MKV in a temp dir
   (NVENC CQ 18 / libx264 CRF 18 — "visually lossless") with scaling + letterbox
   padding to preserve aspect ratio, then `fps=<target>`, `format=yuv420p`.
 - Intermediates are stream-copy concatenated into the final output.
@@ -408,9 +409,9 @@ Pure functions implementing §5.2 math. 100% unit-testable on Linux.
 
 Given an ordered list of `FileProbe`, decides:
 
-- `ConcatPlan.stream_copy(inputs)` — all signatures match.
+- `ConcatPlan.stream_copy(inputs)` — all inputs are MKV and signatures match.
 - `ConcatPlan.normalize_then_concat(inputs, target_sig, normalize_indices)` —
-  includes which specific inputs need re-encoding and which could be copied.
+  normalizes every input when containers or stream signatures do not match.
 
 The plan is serialized into the log so that an agent debugging a failure can see
 exactly what was attempted.

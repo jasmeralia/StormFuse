@@ -21,8 +21,8 @@ FFMPEG_DIR = REPO_ROOT / "resources" / "ffmpeg"
 
 # Pinned gyan.dev essentials build URL — update alongside ffmpeg.sha256
 FFMPEG_URL = (
-    "https://github.com/GyanD/codexffmpeg/releases/download/7.1.1/"
-    "ffmpeg-7.1.1-essentials_build.zip"
+    "https://github.com/GyanD/codexffmpeg/releases/download/8.1/"
+    "ffmpeg-8.1-essentials_build.zip"
 )
 
 

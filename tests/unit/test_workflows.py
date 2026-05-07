@@ -9,13 +9,19 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_ci_workflow_uses_make_targets() -> None:
-    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert not (REPO_ROOT / ".github" / "workflows" / "ci.yml").exists()
 
+    workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+
+    assert "name: CI / Build & Release" in workflow
     assert "branches:\n      - master" in workflow
-    assert "contents: read" in workflow
+    assert "pull_request:" in workflow
+    assert "contents: write" in workflow
     assert "run: make deps" in workflow
     assert "run: make lint" in workflow
     assert "run: make test" in workflow
+    assert "needs: sync-version" in workflow
+    assert "needs.sync-version.outputs.skip_release != 'true'" in workflow
     assert "ruff check" not in workflow
     assert "mypy src/stormfuse/" not in workflow
     assert "pytest tests/unit/" not in workflow
@@ -31,6 +37,12 @@ def test_release_workflow_uses_make_targets_on_windows() -> None:
     workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
 
     assert "TAG_NAME" in workflow
+    assert "Sync Release Version" in workflow
+    assert "scripts/sync_release_version.py" in workflow
+    assert "Tag ${tag_name} does not match APP_VERSION ${app_version}" in workflow
+    assert "git add src/stormfuse/config.py README.md CHANGELOG.md" in workflow
+    assert 'git commit -m "Release ${tag_name}"' in workflow
+    assert "Create Release Tag" in workflow
     assert "refs/tags/${{ env.TAG_NAME }}" in workflow
     assert "actions/checkout@v6" in workflow
     assert "actions/setup-python@v6" in workflow

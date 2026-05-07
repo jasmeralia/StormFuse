@@ -702,8 +702,7 @@ Formatting is handled by **ruff format** (no black). Imports sorted by ruff's `I
 StormFuse/
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                # lint + unit on ubuntu-latest, PR + push
-│       └── release.yml           # build installer on windows-latest, tag v* + workflow_dispatch
+│       └── release.yml           # CI, app-version tag sync, Windows installer, GitHub release
 ├── build/
 │   ├── ffmpeg.sha256             # pinned ffmpeg build hashes
 │   └── installer/
@@ -793,36 +792,36 @@ plus any type stubs.
 
 ---
 
-## 16. GitHub Actions workflows
+## 16. GitHub Actions workflow
 
-### 16.1 `ci.yml`
+### 16.1 `release.yml`
 
-- Triggers: `push`, `pull_request`.
-- Runs on `ubuntu-latest`.
-- Branch filters: `master` for both `push` and `pull_request`.
-- Permissions: `contents: read`.
-- Steps: checkout → setup Python 3.12 → `make deps` → `make lint` →
-  `make generate-third-party` → `make test`.
-- Uploads `coverage.xml` as an artifact.
-
-### 16.2 `release.yml`
-
-- Triggers: `push` tags matching `v*`, and `workflow_dispatch` with an optional
-  `tag` input for manual rebuilds of an existing tag.
-- Uses `TAG_NAME = inputs.tag || github.ref_name` and checks out
-  `refs/tags/${TAG_NAME}` in every job, so rebuilds always use the tagged source.
-- Permissions: `contents: write`.
+- Triggers: `push` to `master`, `push` tags matching `v*`, and `pull_request`
+  targeting `master`.
+- Pull requests run the same Linux lint/test job used before release, but skip tag
+  creation, Windows installer build, and GitHub release publishing.
+- `src/stormfuse/config.py:APP_VERSION` is the app-owned release version. On
+  pushed tags, the tag must equal `v${APP_VERSION}`. On `master` pushes, the
+  workflow creates that tag when the version is new; if the app version has
+  already been tagged, it commits a patch bump to `APP_VERSION`, the README
+  release-build badge tag, and CHANGELOG.md, then lets the resulting push start
+  a fresh release run.
+- Permissions: `actions: read`, `contents: write`.
 - Jobs:
-  1. `lint-and-test` on `ubuntu-latest`: checkout tagged source → setup Python 3.12
+  1. `sync-version` on `ubuntu-latest`: validate pushed tags or synchronize the
+     branch version from existing tags via `scripts/sync_release_version.py`.
+  2. `lint-and-test` on `ubuntu-latest`: checkout source → setup Python 3.12
      → `make deps` → `make lint` → `make generate-third-party` → `make test`
      → upload `coverage.xml`.
-  2. `build-installer` on `windows-latest`: checkout tagged source → setup Python 3.12
+  3. `create-tag` on `ubuntu-latest`: create the release tag derived from
+     `APP_VERSION`, or resolve the pushed tag.
+  4. `build-installer` on `windows-latest`: checkout tagged source → setup Python 3.12
      → `make deps` → `make fetch-ffmpeg` (validates pinned SHA-256 against the
      configured archive filename, not any redirected CDN UUID path) →
      `make generate-third-party` → `make test` → ensure NSIS is installed and on
      `PATH` → `make installer` →
      upload the installer artifact.
-  3. `release` on `ubuntu-latest`: download the installer artifact and publish the
+  5. `release` on `ubuntu-latest`: download the installer artifact and publish the
      GitHub release with generated notes via `softprops/action-gh-release`.
 
 ---

@@ -316,6 +316,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mypy --strict` across all source; `ruff` formatting and linting; pylint 10.00/10
 - PyInstaller onedir build with bundled gyan.dev ffmpeg 7.1.1 (SHA-256 pinned)
 - NSIS installer: per-machine or per-user install, optional Desktop shortcut, Add/Remove Programs entry, "Remove application data" checkbox on uninstall
-- GitHub Actions CI (`ci.yml`: lint + unit on every push) and release (`release.yml`: Windows installer on version tag)
+- GitHub Actions release workflow (`release.yml`) handles PR CI, master CI,
+  app-version tag sync, Windows installer builds, and GitHub release publishing
 - GPL v3/v2 license compliance: SPDX headers on all Python sources, `resources/licenses/` texts, `THIRD-PARTY.md` regenerated at build time by `build/generate_third_party.py`
 - Single version source of truth: `src/stormfuse/config.py:APP_VERSION`; `pyproject.toml` and NSIS installer derive from it automatically

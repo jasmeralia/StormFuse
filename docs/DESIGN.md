@@ -805,7 +805,10 @@ plus any type stubs.
   workflow creates that tag when the version is new; if the app version has
   already been tagged, it commits a patch bump to `APP_VERSION`, the README
   release-build badge tag, and CHANGELOG.md on a `release/vX.Y.Z` branch, opens a
-  PR, and lets the resulting merge start a fresh release run.
+  PR when repository settings permit Actions-created pull requests, and lets the
+  resulting merge start a fresh release run. If the repository blocks
+  Actions-created PRs, the workflow still succeeds after pushing the release
+  branch and emits a warning so the PR can be opened manually.
 - Permissions: `actions: read`, `contents: write`, `pull-requests: write`.
 - Jobs:
   1. `sync-version` on `ubuntu-latest`: validate pushed tags or synchronize the

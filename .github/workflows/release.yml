@@ -86,12 +86,14 @@ jobs:
             git add src/stormfuse/config.py README.md CHANGELOG.md
             git commit -m "Release ${tag_name}"
             git push --force-with-lease origin "HEAD:${bump_branch}"
-            gh pr create \
+            if ! gh pr create \
               --base master \
               --head "${bump_branch}" \
               --title "Release ${tag_name}" \
-              --body "Automated APP_VERSION release bump for ${tag_name}." \
-              || gh pr view "${bump_branch}" --json url
+              --body "Automated APP_VERSION release bump for ${tag_name}."; then
+              gh pr view "${bump_branch}" --json url \
+                || echo "::warning::Pushed ${bump_branch}; create the release bump PR manually or enable Actions-created pull requests."
+            fi
             echo "skip_release=true" >> "$GITHUB_OUTPUT"
             echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
             exit 0

@@ -42,6 +42,9 @@ def test_release_workflow_uses_make_targets_on_windows() -> None:
     assert "Tag ${tag_name} does not match APP_VERSION ${app_version}" in workflow
     assert "git add src/stormfuse/config.py README.md CHANGELOG.md" in workflow
     assert 'git commit -m "Release ${tag_name}"' in workflow
+    assert 'git push --force-with-lease origin "HEAD:${bump_branch}"' in workflow
+    assert "gh pr create" in workflow
+    assert "HEAD:master" not in workflow
     assert "Create Release Tag" in workflow
     assert "refs/tags/${{ env.TAG_NAME }}" in workflow
     assert "actions/checkout@v6" in workflow

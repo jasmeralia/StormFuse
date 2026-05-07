@@ -63,6 +63,8 @@ jobs:
       - name: Sync branch version
         id: branch
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -78,9 +80,16 @@ jobs:
           bumped=$(python -c "import json, sys; print(str(json.loads(sys.argv[1])['bumped']).lower())" "${result}")
 
           if [[ "${bumped}" == "true" ]]; then
+            bump_branch="release/${tag_name}"
             git add src/stormfuse/config.py README.md CHANGELOG.md
             git commit -m "Release ${tag_name}"
-            git push origin HEAD:master
+            git push --force-with-lease origin "HEAD:${bump_branch}"
+            gh pr create \
+              --base master \
+              --head "${bump_branch}" \
+              --title "Release ${tag_name}" \
+              --body "Automated APP_VERSION release bump for ${tag_name}." \
+              || gh pr view "${bump_branch}" --json url
             echo "skip_release=true" >> "$GITHUB_OUTPUT"
             echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
             exit 0

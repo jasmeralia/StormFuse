@@ -17,6 +17,7 @@ def test_ci_workflow_uses_make_targets() -> None:
     assert "branches:\n      - master" in workflow
     assert "pull_request:" in workflow
     assert "contents: write" in workflow
+    assert "pull-requests: write" in workflow
     assert "run: make deps" in workflow
     assert "run: make lint" in workflow
     assert "run: make test" in workflow

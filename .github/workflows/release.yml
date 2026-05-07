@@ -13,6 +13,7 @@ on:
 permissions:
   actions: read
   contents: write
+  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
@@ -24,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     outputs:
       tag_name: ${{ steps.resolve.outputs.tag_name || steps.branch.outputs.tag_name }}
       skip_release: ${{ steps.pr.outputs.skip_release || steps.resolve.outputs.skip_release || steps.branch.outputs.skip_release }}

@@ -135,10 +135,12 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: [lint-and-test, prepare-tag]
     runs-on: windows-latest
+    env:
+      TAG_NAME: ${{ needs.prepare-tag.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: refs/tags/${{ needs.prepare-tag.outputs.tag_name }}
+          ref: refs/tags/${{ env.TAG_NAME }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -200,11 +202,13 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: [prepare-tag, lint-and-test, build-installer]
     runs-on: ubuntu-latest
+    env:
+      TAG_NAME: ${{ needs.prepare-tag.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: refs/tags/${{ needs.prepare-tag.outputs.tag_name }}
+          ref: refs/tags/${{ env.TAG_NAME }}
 
       - name: Download build artifacts
         run: gh run download "$GITHUB_RUN_ID" --name StormFuse-installer --dir .
@@ -250,7 +254,7 @@ jobs:
           print(tag)
           PY
           )
-          CURRENT_TAG="${{ needs.prepare-tag.outputs.tag_name }}"
+          CURRENT_TAG="${{ env.TAG_NAME }}"
 
           CHANGELOG_SECTION=""
           if [ -f CHANGELOG.md ]; then
@@ -271,14 +275,14 @@ jobs:
             echo "RELEASE_EOF"
           } >> "$GITHUB_OUTPUT"
         env:
-          CURRENT_TAG: ${{ needs.prepare-tag.outputs.tag_name }}
+          CURRENT_TAG: ${{ env.TAG_NAME }}
 
       - name: Create release
         uses: softprops/action-gh-release@v3
         with:
           draft: false
           prerelease: true
-          tag_name: ${{ needs.prepare-tag.outputs.tag_name }}
+          tag_name: ${{ env.TAG_NAME }}
           body: ${{ steps.release_notes.outputs.body }}
           files: |
             **/StormFuse-Setup-*.exe

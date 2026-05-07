@@ -804,8 +804,8 @@ plus any type stubs.
   pushed tags, the tag must equal `v${APP_VERSION}`. On `master` pushes, the
   workflow creates that tag when the version is new; if the app version has
   already been tagged, it commits a patch bump to `APP_VERSION`, the README
-  release-build badge tag, and CHANGELOG.md, then lets the resulting push start
-  a fresh release run.
+  release-build badge tag, and CHANGELOG.md on a `release/vX.Y.Z` branch, opens a
+  PR, and lets the resulting merge start a fresh release run.
 - Permissions: `actions: read`, `contents: write`.
 - Jobs:
   1. `sync-version` on `ubuntu-latest`: validate pushed tags or synchronize the

@@ -23,9 +23,7 @@ def _write_release_files(root: Path, version: str = "1.0.19") -> None:
     )
     (root / "README.md").write_text(
         "# StormFuse\n\n"
-        "[![Release Build](https://img.shields.io/github/actions/workflow/status/"
-        f"jasmeralia/StormFuse/release.yml?event=push&branch=v{version}"
-        "&label=Release%20Build)](https://github.com/jasmeralia/StormFuse/actions/workflows/release.yml)\n"
+        f"[![Release](https://img.shields.io/github/v/release/jasmeralia/StormFuse?include_prereleases&sort=semver&label=Release)](https://github.com/jasmeralia/StormFuse/releases/tag/v{version})\n"
         f"[![Coverage](https://codecov.io/gh/jasmeralia/StormFuse/branch/v{version}/graph/badge.svg)]"
         f"(https://app.codecov.io/gh/jasmeralia/StormFuse/branch/v{version})\n",
         encoding="utf-8",
@@ -82,7 +80,7 @@ def test_sync_release_version_updates_files_when_bumped(tmp_path: Path) -> None:
         encoding="utf-8"
     )
     readme = (tmp_path / "README.md").read_text(encoding="utf-8")
-    assert "branch=v1.0.20" in readme
+    assert "/releases/tag/v1.0.20" in readme
     assert readme.count("/branch/v1.0.20") == 2
     changelog = (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
     assert changelog.index("## [1.0.20] - 2026-05-07") < changelog.index("## [1.0.19]")

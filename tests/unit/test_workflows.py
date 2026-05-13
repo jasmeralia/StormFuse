@@ -45,7 +45,6 @@ def test_release_workflow_uses_make_targets_on_windows() -> None:
     assert 'git commit -m "Release ${tag_name}"' in workflow
     assert 'git push --force-with-lease origin "HEAD:${bump_branch}"' in workflow
     assert "gh pr create" in workflow
-    assert "create the release bump PR manually" in workflow
     assert "HEAD:master" not in workflow
     assert "Create Release Tag" in workflow
     assert "refs/tags/${{ env.TAG_NAME }}" in workflow

@@ -13,6 +13,7 @@ from pathlib import Path
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 APP_VERSION_RE = re.compile(r'APP_VERSION = ["\'](?P<version>\d+\.\d+\.\d+)["\']')
 README_BADGE_RE = re.compile(r"branch=v\d+\.\d+\.\d+")
+CODECOV_BRANCH_RE = re.compile(r"/branch/v\d+\.\d+\.\d+")
 CHANGELOG_HEADER_RE = re.compile(r"^## \[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2}$", re.MULTILINE)
 
 
@@ -102,6 +103,9 @@ def update_config(path: Path, version: Version) -> None:
 def update_readme(path: Path, version: Version) -> None:
     text = path.read_text(encoding="utf-8")
     updated = replace_once(README_BADGE_RE, f"branch={version.tag}", text, "README badge tag")
+    updated, count = CODECOV_BRANCH_RE.subn(f"/branch/{version.tag}", updated)
+    if count != 2:
+        raise ValueError(f"Expected 2 codecov branch replacements, got {count}")
     path.write_text(updated, encoding="utf-8")
 
 

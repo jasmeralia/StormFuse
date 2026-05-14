@@ -31,6 +31,9 @@ def _write_release_files(root: Path, version: str = "1.0.19") -> None:
     (root / "CHANGELOG.md").write_text(
         "# Changelog\n\n"
         "All notable changes to this project will be documented in this file.\n\n"
+        "## [Unreleased]\n\n"
+        "### Changed\n\n"
+        "- Some pending change.\n\n"
         f"## [{version}] - 2026-04-29\n\n"
         "### Changed\n\n"
         "#### Existing section\n"
@@ -83,8 +86,10 @@ def test_sync_release_version_updates_files_when_bumped(tmp_path: Path) -> None:
     assert "/releases/tag/v1.0.20" in readme
     assert readme.count("/branch/v1.0.20") == 2
     changelog = (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "## [Unreleased]" in changelog
+    assert changelog.index("## [Unreleased]") < changelog.index("## [1.0.20] - 2026-05-07")
     assert changelog.index("## [1.0.20] - 2026-05-07") < changelog.index("## [1.0.19]")
-    assert "- Automatic release for latest changes merged to master." in changelog
+    assert "- Some pending change." in changelog
 
 
 def test_sync_release_version_does_not_write_when_app_version_is_releasable(
@@ -97,6 +102,21 @@ def test_sync_release_version_does_not_write_when_app_version_is_releasable(
     assert result["tag_name"] == "v1.0.20"
     assert result["bumped"] is False
     assert "## [1.0.20]" in (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
+
+
+def test_sync_release_version_changelog_fallback_without_unreleased(tmp_path: Path) -> None:
+    _write_release_files(tmp_path)
+    changelog_path = tmp_path / "CHANGELOG.md"
+    changelog_path.write_text(
+        changelog_path.read_text(encoding="utf-8").replace("## [Unreleased]\n\n### Changed\n\n- Some pending change.\n\n", ""),
+        encoding="utf-8",
+    )
+
+    sync_release_version(tmp_path, ["v1.0.18", "v1.0.19"], date(2026, 5, 7), write=True)
+
+    changelog = changelog_path.read_text(encoding="utf-8")
+    assert "## [1.0.20] - 2026-05-07" in changelog
+    assert changelog.index("## [1.0.20] - 2026-05-07") < changelog.index("## [1.0.19]")
 
 
 def test_version_rejects_non_three_part_versions() -> None:

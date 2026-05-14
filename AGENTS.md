@@ -212,20 +212,23 @@ There is no manual tagging or pushing step.
 For a normal feature/fix PR:
 1. `make lintfix && make lint` — must pass with 10.00/10 and zero mypy errors.
 2. `make test` — all unit tests must pass.
-3. Add an entry to `CHANGELOG.md` under the appropriate version section.
+3. Write meaningful entries under `## [Unreleased]` at the top of `CHANGELOG.md`.
+   The pipeline renames that section to the versioned header automatically.
 4. Open a PR; CI must be green before merging.
 
 The pipeline then:
 - Detects that `APP_VERSION` is already tagged → bumps the patch version,
+  renames `## [Unreleased]` to `## [X.Y.Z] - date` (preserving your entries),
   commits `config.py` / `README.md` / `CHANGELOG.md` to a `release/vX.Y.Z`
   branch, opens a PR, and auto-merges it once CI passes.
 - On that merge, creates the release tag via the GitHub API and builds the
   Windows installer, then publishes a GitHub release with the installer attached.
 
 For a PR that touches `.github/workflows/`:
-- **Also bump `APP_VERSION`** and add a `CHANGELOG.md` entry in the same PR
-  (see the rule in §10).  The pipeline then goes straight to tagging without
-  the intermediate bump PR.
+- **Also bump `APP_VERSION`** and write versioned `CHANGELOG.md` entries
+  directly (e.g. `## [1.0.25] - YYYY-MM-DD`) rather than under `[Unreleased]`,
+  since the pipeline goes straight to tagging without the intermediate bump PR
+  (see the rule in §10).
 
 ## 11. Commit, branch, PR conventions
 

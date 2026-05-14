@@ -107,8 +107,9 @@ def test_sync_release_version_does_not_write_when_app_version_is_releasable(
 def test_sync_release_version_changelog_fallback_without_unreleased(tmp_path: Path) -> None:
     _write_release_files(tmp_path)
     changelog_path = tmp_path / "CHANGELOG.md"
+    unreleased_block = "## [Unreleased]\n\n### Changed\n\n- Some pending change.\n\n"
     changelog_path.write_text(
-        changelog_path.read_text(encoding="utf-8").replace("## [Unreleased]\n\n### Changed\n\n- Some pending change.\n\n", ""),
+        changelog_path.read_text(encoding="utf-8").replace(unreleased_block, ""),
         encoding="utf-8",
     )
 

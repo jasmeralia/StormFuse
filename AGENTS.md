@@ -196,21 +196,36 @@ value automatically:
 **Rule: to bump the version, change exactly one line — `APP_VERSION` in
 `src/stormfuse/config.py` — then update `CHANGELOG.md`.**
 
+**Rule: any PR that touches `.github/workflows/` must also bump `APP_VERSION`.**
+The release pipeline auto-bumps the version whenever `APP_VERSION` is already
+tagged, so a workflow-only PR would otherwise trigger a spurious patch release
+just to absorb the pipeline change. Bumping `APP_VERSION` in the same PR lets
+the merge go straight to tagging and releasing without the intermediate bump PR.
+
 `build/version.nsh` is generated at build time and is gitignored.
 
 ## Release checklist
 
+Releases are **fully automated** — merging to `master` triggers the pipeline.
+There is no manual tagging or pushing step.
+
+For a normal feature/fix PR:
 1. `make lintfix && make lint` — must pass with 10.00/10 and zero mypy errors.
-2. `make test` — all 152+ unit tests must pass.
-3. Bump `APP_VERSION` in `src/stormfuse/config.py`.
-4. Add a new version entry at the top of `CHANGELOG.md` following Keep a Changelog format.
-5. Update the README release-build badge `branch=vX.Y.Z` query parameter to the
-   same tag. This badge is intentionally pinned manually to the current release
-   tag.
-6. Commit with message: `Release vX.Y.Z` (subject line) plus a body summarising
-   what changed (reference docs/DESIGN.md sections where relevant).
-7. Tag: `git tag vX.Y.Z`.
-8. Push branch and tag: `git push && git push --tags`.
+2. `make test` — all unit tests must pass.
+3. Add an entry to `CHANGELOG.md` under the appropriate version section.
+4. Open a PR; CI must be green before merging.
+
+The pipeline then:
+- Detects that `APP_VERSION` is already tagged → bumps the patch version,
+  commits `config.py` / `README.md` / `CHANGELOG.md` to a `release/vX.Y.Z`
+  branch, opens a PR, and auto-merges it once CI passes.
+- On that merge, creates the release tag via the GitHub API and builds the
+  Windows installer, then publishes a GitHub release with the installer attached.
+
+For a PR that touches `.github/workflows/`:
+- **Also bump `APP_VERSION`** and add a `CHANGELOG.md` entry in the same PR
+  (see the rule in §10).  The pipeline then goes straight to tagging without
+  the intermediate bump PR.
 
 ## 11. Commit, branch, PR conventions
 

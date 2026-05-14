@@ -175,8 +175,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    env:
-      PUSH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || github.token }}
     outputs:
       tag_name: ${{ steps.tag.outputs.tag_name }}
     steps:
@@ -186,6 +184,8 @@ jobs:
 
       - name: Create or resolve tag
         id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           tag_name="${{ needs.sync-version.outputs.tag_name }}"
           if [[ -z "${tag_name}" ]]; then
@@ -204,11 +204,11 @@ jobs:
             exit 1
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${tag_name}" -m "Release ${tag_name}"
-          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}.git"
-          git push origin "refs/tags/${tag_name}"
+          commit_sha=$(git rev-parse HEAD)
+          gh api "repos/${{ github.repository }}/git/refs" \
+            --method POST \
+            --field "ref=refs/tags/${tag_name}" \
+            --field "sha=${commit_sha}"
           echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
 
   build-installer:

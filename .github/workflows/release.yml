@@ -175,7 +175,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      workflows: write
+    env:
+      PUSH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || github.token }}
     outputs:
       tag_name: ${{ steps.tag.outputs.tag_name }}
     steps:
@@ -206,6 +207,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "${tag_name}" -m "Release ${tag_name}"
+          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}.git"
           git push origin "refs/tags/${tag_name}"
           echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
 

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.25] - 2026-05-14
+
+### Changed
+
+#### Release pipeline (§16)
+- Create release tag via GitHub API ref instead of `git push` to avoid workflow-file permission restriction.
+- Auto-merge release bump PRs immediately after creation.
+- Add AGENTS.md rule requiring APP_VERSION bump alongside any workflow file change.
+
 ## [1.0.24] - 2026-05-13
 
 ### Changed

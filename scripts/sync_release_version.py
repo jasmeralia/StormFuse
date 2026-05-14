@@ -15,6 +15,7 @@ APP_VERSION_RE = re.compile(r'APP_VERSION = ["\'](?P<version>\d+\.\d+\.\d+)["\']
 RELEASE_TAG_RE = re.compile(r"/releases/tag/v\d+\.\d+\.\d+")
 CODECOV_BRANCH_RE = re.compile(r"/branch/v\d+\.\d+\.\d+")
 CHANGELOG_HEADER_RE = re.compile(r"^## \[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2}$", re.MULTILINE)
+CHANGELOG_UNRELEASED_RE = re.compile(r"^## \[Unreleased\]$", re.MULTILINE)
 
 
 @dataclass(frozen=True, order=True)
@@ -114,17 +115,19 @@ def update_changelog(path: Path, version: Version, entry_date: date) -> None:
     if f"## [{version}]" in text:
         return
 
+    versioned_header = f"## [{version}] - {entry_date.isoformat()}"
+
+    if CHANGELOG_UNRELEASED_RE.search(text):
+        updated = CHANGELOG_UNRELEASED_RE.sub(
+            f"## [Unreleased]\n\n{versioned_header}", text, count=1
+        )
+        path.write_text(updated, encoding="utf-8")
+        return
+
     match = CHANGELOG_HEADER_RE.search(text)
     if not match:
-        raise ValueError(f"Could not find first version section in {path}")
-
-    entry = (
-        f"## [{version}] - {entry_date.isoformat()}\n\n"
-        "### Changed\n\n"
-        "#### Release pipeline (§16)\n"
-        "- Automatic release for latest changes merged to master.\n\n"
-    )
-    updated = text[: match.start()] + entry + text[match.start() :]
+        raise ValueError(f"Could not find [Unreleased] or first version section in {path}")
+    updated = text[: match.start()] + versioned_header + "\n\n" + text[match.start() :]
     path.write_text(updated, encoding="utf-8")
 
 

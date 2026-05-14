@@ -92,6 +92,7 @@ jobs:
               --title "Release ${tag_name}" \
               --body "Automated APP_VERSION release bump for ${tag_name}." \
               || gh pr view "${bump_branch}" --json url
+            gh pr merge --auto --squash "${bump_branch}"
             echo "skip_release=true" >> "$GITHUB_OUTPUT"
             echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
             exit 0

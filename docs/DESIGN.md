@@ -291,12 +291,14 @@ and enables Cancel. No queue, no parallelism — this is intentional.
 - Input: file field + **Browse…**.
 - **Source size readout** under the input row (e.g. `Source size: 12.34 GB`),
   visible whenever a file is loaded.
-- **Pre-load size guard:** any selected file under `MIN_SOURCE_BYTES`
-  (9.5 GB decimal, matching the default slider target) is rejected with a
-  warning dialog and not loaded — compression has nothing useful to do below
-  the slider's own target.
-- Target size slider with GB readout to one decimal and a computed video-bitrate
-  preview below it (`≈ 8400 kbps`). When a source file is loaded, the slider's
+- **Pre-load size guard (dynamic against the slider):** a selected file is
+  refused with a warning dialog when its size is at or below the current
+  slider value — at that target there's no useful compression to do. To
+  load a smaller file, the user must first move the slider below the file
+  size; the rejection message tells them so.
+- Target size slider: range 5.0–10.0 GB in 0.1 GB steps, default 9.5 GB. Shows
+  the current GB readout to one decimal and a computed video-bitrate preview
+  below it (`≈ 8400 kbps`). When a source file is loaded, the slider's
   maximum is capped at one tenth of a GB below the source size so the selected
   target is always strictly smaller than the input — no-op re-encodes can't be
   triggered. The on-slider max label reflects the live cap. Sources ≥ 10 GB

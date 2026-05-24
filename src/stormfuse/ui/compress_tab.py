@@ -31,11 +31,6 @@ from stormfuse.ui.settings import KEY_COMPRESS_IN, KEY_COMPRESS_OUT, last_dir, r
 from stormfuse.ui.theme import show_warning_message
 from stormfuse.ui.widgets.size_slider import SizeSlider
 
-# The compress workflow exists to fit a source under the 10 GB MFC Share
-# per-file limit. Anything already under the default 9.5 GB slider target has
-# nothing useful to gain from a re-encode, so we reject the file outright.
-MIN_SOURCE_BYTES = 9_500_000_000
-
 
 def _format_file_size_gb(size_bytes: int) -> str:
     return f"{size_bytes / 1_000_000_000:.2f} GB"
@@ -301,19 +296,21 @@ class CompressTab(QWidget):
                 f"Could not read {path.name}: {exc}",
             )
             return
-        if size_bytes < MIN_SOURCE_BYTES:
+        source_gb = size_bytes / 1_000_000_000
+        target_gb = self._slider.gb_value()
+        if source_gb <= target_gb:
             show_warning_message(
                 self,
                 "File already under target",
-                f"{path.name} is {_format_file_size_gb(size_bytes)}, already under the "
-                f"9.5 GB target. No compression is needed — use the file as-is.",
+                f"{path.name} is {_format_file_size_gb(size_bytes)}, already at or "
+                f"under the current {target_gb:.1f} GB target. Reduce the target "
+                f"slider below the file size to compress it.",
             )
             return
         self._input_field.setText(str(path))
         self._source_size_label.setText(f"Source size: {_format_file_size_gb(size_bytes)}")
         # Cap the slider just below the source so the target is always strictly
         # smaller than the source (any target >= source is a no-op re-encode).
-        source_gb = size_bytes / 1_000_000_000
         self._slider.set_max_gb(source_gb - 0.1)
         if not self._out_filename.text():
             stem = path.stem.removesuffix("-combined")

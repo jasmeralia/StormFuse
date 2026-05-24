@@ -12,7 +12,7 @@ from pytestqt.qtbot import QtBot
 from stormfuse.ffmpeg.bitrate import compute_bitrate
 from stormfuse.ffmpeg.probe import AudioStream, FileProbe, VideoStream
 from stormfuse.ui import compress_tab as compress_tab_module
-from stormfuse.ui.compress_tab import MIN_SOURCE_BYTES, CompressTab
+from stormfuse.ui.compress_tab import CompressTab
 
 
 def _probe(path: Path, *, duration_sec: float = 120.0) -> FileProbe:
@@ -26,7 +26,7 @@ def _probe(path: Path, *, duration_sec: float = 120.0) -> FileProbe:
     )
 
 
-# Stub file size that is comfortably above the 9.5 GB rejection threshold so
+# Stub file size that is comfortably above the default 9.5 GB slider target so
 # tests focused on slider / probe behavior don't trip the size guard.
 def _large_file_size(_path: Path) -> int:
     return 12_000_000_000
@@ -161,7 +161,42 @@ def test_compress_tab_shows_source_size_when_input_loaded(qtbot: QtBot, tmp_path
     assert tab._input_field.text() == str(path)  # type: ignore[attr-defined]
 
 
-def test_compress_tab_rejects_file_already_under_threshold(
+def test_compress_tab_rejects_file_at_or_under_current_target(
+    qtbot: QtBot,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Default slider is 9.5 GB; an 8 GB file has nothing to gain from
+    # compression at the current target, so it must be refused.
+    warnings: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        compress_tab_module,
+        "show_warning_message",
+        lambda _self, title, message: warnings.append((title, message)) or 0,
+    )
+
+    path = tmp_path / "eight_gb.mp4"
+    tab = CompressTab(
+        probe_file=lambda actual_path: _probe(actual_path, duration_sec=600.0),
+        file_size=lambda _p: 8_000_000_000,
+    )
+    qtbot.addWidget(tab)
+    tab.show()
+
+    tab._set_input_path(path)  # type: ignore[attr-defined]
+
+    assert len(warnings) == 1
+    title, message = warnings[0]
+    assert title == "File already under target"
+    assert "9.5 GB target" in message
+    assert "eight_gb.mp4" in message
+    assert "Reduce the target slider" in message
+    assert tab._input_field.text() == ""  # type: ignore[attr-defined]
+    assert tab._source_size_label.text() == ""  # type: ignore[attr-defined]
+    assert not tab._run_btn.isEnabled()  # type: ignore[attr-defined]
+
+
+def test_compress_tab_rejects_file_exactly_at_current_target(
     qtbot: QtBot,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -172,11 +207,11 @@ def test_compress_tab_rejects_file_already_under_threshold(
         "show_warning_message",
         lambda _self, title, message: warnings.append((title, message)) or 0,
     )
-
-    path = tmp_path / "already_small.mp4"
+    path = tmp_path / "exactly_target.mkv"
     tab = CompressTab(
         probe_file=lambda actual_path: _probe(actual_path, duration_sec=600.0),
-        file_size=lambda _p: MIN_SOURCE_BYTES - 1,
+        # 9.5 GB == default slider value; equality is still a no-op.
+        file_size=lambda _p: 9_500_000_000,
     )
     qtbot.addWidget(tab)
     tab.show()
@@ -184,28 +219,31 @@ def test_compress_tab_rejects_file_already_under_threshold(
     tab._set_input_path(path)  # type: ignore[attr-defined]
 
     assert len(warnings) == 1
-    title, message = warnings[0]
-    assert title == "File already under target"
-    assert "9.5 GB" in message
-    assert "already_small.mp4" in message
     assert tab._input_field.text() == ""  # type: ignore[attr-defined]
-    assert tab._source_size_label.text() == ""  # type: ignore[attr-defined]
-    assert not tab._run_btn.isEnabled()  # type: ignore[attr-defined]
 
 
-def test_compress_tab_accepts_file_exactly_at_threshold(qtbot: QtBot, tmp_path: Path) -> None:
-    path = tmp_path / "just_big_enough.mkv"
+def test_compress_tab_accepts_smaller_file_when_slider_lowered_first(
+    qtbot: QtBot, tmp_path: Path
+) -> None:
+    # 8 GB file with slider lowered to 5 GB: compression to 5 GB is meaningful,
+    # so the file should load and the slider's max should drop to source-0.1.
+    path = tmp_path / "eight_gb.mkv"
     tab = CompressTab(
         probe_file=lambda actual_path: _probe(actual_path, duration_sec=600.0),
-        file_size=lambda _p: MIN_SOURCE_BYTES,
+        file_size=lambda _p: 8_000_000_000,
     )
     qtbot.addWidget(tab)
     tab.show()
 
+    tab._slider._slider.setValue(50)  # type: ignore[attr-defined]  # 5.0 GB
+
     tab._set_input_path(path)  # type: ignore[attr-defined]
 
     assert tab._input_field.text() == str(path)  # type: ignore[attr-defined]
-    assert "9.50 GB" in tab._source_size_label.text()  # type: ignore[attr-defined]
+    assert tab._source_size_label.text() == "Source size: 8.00 GB"  # type: ignore[attr-defined]
+    # Max should be 7.9 GB so the user can't bump back above the source size.
+    assert tab._slider._slider.maximum() == 79  # type: ignore[attr-defined]
+    assert tab._slider.gb_value() == 5.0  # type: ignore[attr-defined]
 
 
 def test_compress_tab_surfaces_stat_error(

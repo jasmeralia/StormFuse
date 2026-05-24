@@ -296,7 +296,11 @@ and enables Cancel. No queue, no parallelism — this is intentional.
   warning dialog and not loaded — compression has nothing useful to do below
   the slider's own target.
 - Target size slider with GB readout to one decimal and a computed video-bitrate
-  preview below it (`≈ 8400 kbps`).
+  preview below it (`≈ 8400 kbps`). When a source file is loaded, the slider's
+  maximum is capped at one tenth of a GB below the source size so the selected
+  target is always strictly smaller than the input — no-op re-encodes can't be
+  triggered. The on-slider max label reflects the live cap. Sources ≥ 10 GB
+  leave the slider at its default 10.0 GB ceiling.
 - 2-pass checkbox.
 - Encoder badge echoing the app-level detection.
 - Output filename + output folder browser.

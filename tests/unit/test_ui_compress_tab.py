@@ -238,3 +238,57 @@ def test_compress_tab_surfaces_stat_error(
     assert title == "Cannot read file"
     assert "permission denied" in message
     assert tab._input_field.text() == ""  # type: ignore[attr-defined]
+
+
+def test_compress_tab_caps_slider_max_below_source_size(qtbot: QtBot, tmp_path: Path) -> None:
+    # Source is 9.7 GB; slider max should drop to 9.6 GB so the target stays
+    # strictly below the source (any target >= source is a no-op).
+    path = tmp_path / "just_over.mkv"
+    tab = CompressTab(
+        probe_file=lambda actual_path: _probe(actual_path, duration_sec=600.0),
+        file_size=lambda _p: 9_700_000_000,
+    )
+    qtbot.addWidget(tab)
+    tab.show()
+
+    tab._set_input_path(path)  # type: ignore[attr-defined]
+
+    assert tab._slider._slider.maximum() == 96  # type: ignore[attr-defined]
+    assert tab._slider.gb_value() <= 9.6  # type: ignore[attr-defined]
+
+
+def test_compress_tab_keeps_slider_max_at_10gb_for_large_source(
+    qtbot: QtBot, tmp_path: Path
+) -> None:
+    # Source > 10 GB: the slider's existing 10.0 GB ceiling is already strictly
+    # below source size, so it should not be lowered.
+    path = tmp_path / "huge.mkv"
+    tab = CompressTab(
+        probe_file=lambda actual_path: _probe(actual_path, duration_sec=600.0),
+        file_size=lambda _p: 25_000_000_000,
+    )
+    qtbot.addWidget(tab)
+    tab.show()
+
+    tab._set_input_path(path)  # type: ignore[attr-defined]
+
+    assert tab._slider._slider.maximum() == 100  # type: ignore[attr-defined]
+
+
+def test_size_slider_set_max_gb_clamps_value_and_label(qtbot: QtBot) -> None:
+    from stormfuse.ui.widgets.size_slider import SizeSlider
+
+    slider = SizeSlider()
+    qtbot.addWidget(slider)
+
+    slider.set_max_gb(7.5)
+    assert slider._slider.maximum() == 75  # type: ignore[attr-defined]
+    assert slider._max_label.text() == "7.5 GB"  # type: ignore[attr-defined]
+    # Default value of 9.5 GB must be clamped down to the new ceiling.
+    assert slider.gb_value() == 7.5
+
+    # Restoring to 10.0 GB should not move the current value back up.
+    slider.set_max_gb(10.0)
+    assert slider._slider.maximum() == 100  # type: ignore[attr-defined]
+    assert slider._max_label.text() == "10.0 GB"  # type: ignore[attr-defined]
+    assert slider.gb_value() == 7.5

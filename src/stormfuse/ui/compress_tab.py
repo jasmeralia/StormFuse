@@ -311,6 +311,10 @@ class CompressTab(QWidget):
             return
         self._input_field.setText(str(path))
         self._source_size_label.setText(f"Source size: {_format_file_size_gb(size_bytes)}")
+        # Cap the slider just below the source so the target is always strictly
+        # smaller than the source (any target >= source is a no-op re-encode).
+        source_gb = size_bytes / 1_000_000_000
+        self._slider.set_max_gb(source_gb - 0.1)
         if not self._out_filename.text():
             stem = path.stem.removesuffix("-combined")
             self._out_filename.setText(f"{stem}-compressed.mp4")

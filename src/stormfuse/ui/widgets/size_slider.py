@@ -31,10 +31,12 @@ class SizeSlider(QWidget):
         self._gb_label = QLabel(self._format_gb(self._DEFAULT_GB))
         self._gb_label.setMinimumWidth(50)
 
+        self._max_label = QLabel(self._format_gb(self._MAX_GB))
+
         row = QHBoxLayout()
         row.addWidget(QLabel("1.0 GB"))
         row.addWidget(self._slider, stretch=1)
-        row.addWidget(QLabel("10.0 GB"))
+        row.addWidget(self._max_label)
         row.addWidget(self._gb_label)
 
         self._bitrate_label = QLabel("")
@@ -56,6 +58,19 @@ class SizeSlider(QWidget):
 
     def gb_value(self) -> float:
         return self._slider.value() / 10.0
+
+    def set_max_gb(self, max_gb: float) -> None:
+        """Cap the slider's maximum at *max_gb* GB (clamped to [1.0, 10.0]).
+
+        Used by the Compress tab to make sure a target that exceeds the
+        source file size — which would be a no-op compression — cannot be
+        selected. Pass 10.0 to restore the default ceiling.
+        """
+        max_tenths = max(self._MIN_GB, min(self._MAX_GB, int(max_gb * 10)))
+        self._slider.setMaximum(max_tenths)
+        self._max_label.setText(self._format_gb(max_tenths))
+        if self._slider.value() > max_tenths:
+            self._slider.setValue(max_tenths)
 
     def set_bitrate_preview(self, bitrate_k: int) -> None:
         if bitrate_k > 0:

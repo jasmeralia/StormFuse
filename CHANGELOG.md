@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pre-load size guard: files already under 9.5 GB (the default slider target)
   are rejected with a warning dialog instead of being loaded — compression
   has nothing useful to do below the slider's own target.
+- Target slider maximum is capped at one tenth of a GB below the loaded
+  source size so targets that would be no-ops (target ≥ source) can't be
+  selected. Sources ≥ 10 GB leave the slider's default 10.0 GB ceiling.
 
 ## [1.0.26] - 2026-05-24
 

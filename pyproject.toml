@@ -18,7 +18,7 @@ stormfuse = "stormfuse.__main__:main"
 where = ["src"]
 
 [tool.setuptools.dynamic]
-version = {attr = "stormfuse.config.APP_VERSION"}
+version = {attr = "stormfuse._version.__version__"}
 
 # ---------------------------------------------------------------------------
 # ruff

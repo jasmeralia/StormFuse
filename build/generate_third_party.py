@@ -35,7 +35,7 @@ PYTHON_COMPONENTS = (
         distribution="stormfuse",
         display_name="StormFuse",
         role="Application package",
-        homepage="https://github.com/winds-of-storm/stormfuse",
+        homepage="https://github.com/jasmeralia/stormfuse",
     ),
     PackageSpec(
         distribution="PyQt6",

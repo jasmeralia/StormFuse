@@ -796,33 +796,56 @@ plus any type stubs.
 
 ### 16.1 `release.yml`
 
-- Triggers: `push` to `master`, `push` tags matching `v*`, and `pull_request`
-  targeting `master`.
-- Pull requests run the same Linux lint/test job used before release, but skip tag
-  creation, Windows installer build, and GitHub release publishing.
-- `src/stormfuse/config.py:APP_VERSION` is the app-owned release version. On
-  pushed tags, the tag must equal `v${APP_VERSION}`. On `master` pushes, the
-  workflow creates that tag when the version is new; if the app version has
-  already been tagged, it commits a patch bump to `APP_VERSION`, the README
-  release-build badge tag, and CHANGELOG.md on a `release/vX.Y.Z` branch, opens a
-  PR, and lets the resulting merge start a fresh release run.
-- Permissions: `actions: read`, `contents: write`, `pull-requests: write`.
+- Triggers: `push` to `master`, `push` tags matching `v*`, `pull_request`
+  targeting `master`, and `workflow_dispatch` (with a `release` boolean input).
+- Pull requests run the Linux lint/test job only — no tag, no installer, no
+  release.
+- **Versioning is tag-derived**, not source-coded. There is no `APP_VERSION`
+  literal in the tree. `src/stormfuse/_version.py` is generated at build time
+  (gitignored) by `scripts/write_version.py`:
+  - In CI, the workflow invokes it with `--tag vX.Y.Z` so the installer embeds
+    the exact release version.
+  - Locally, `make deps`/`make installer` invoke it with no args; it derives
+    a dev version from `git describe` and falls back to `0.0.0+dev`.
+- On `push` to `master`: the workflow computes the next patch version from
+  `git tag --sort=-v:refname` (or `v1.0.0` if no tags exist), creates the tag
+  via the GitHub API pointing at the merge commit, builds the installer, and
+  publishes the release. If the master HEAD is already tagged, the release path
+  is skipped (no double-release).
+- On `push` of a `v*` tag: the workflow builds and publishes for that tag
+  without creating a new one.
+- On `workflow_dispatch` with `release=false`: lint + test only against the
+  selected ref.
+- On `workflow_dispatch` with `release=true`: behaves like a push to master
+  (when the dispatched ref is master) or like a tag push (when the dispatched
+  ref is an existing `vX.Y.Z` tag). Any other ref is rejected.
+- Permissions: `actions: read`, `contents: write`. The `pull-requests: write`
+  permission is no longer required — there is no bump PR.
+- CHANGELOG.md is **not modified by CI** (master is branch-protected against
+  direct pushes). The release-notes generator reads the `[Unreleased]` section
+  at the tagged commit; contributors promote `[Unreleased]` → `[vX.Y.Z]` in
+  the PR that introduces the next round of entries (see AGENTS.md release
+  checklist).
 - Jobs:
-  1. `sync-version` on `ubuntu-latest`: validate pushed tags or synchronize the
-     branch version from existing tags via `scripts/sync_release_version.py`.
+  1. `resolve` on `ubuntu-latest`: runs `scripts/release_info.py` and emits
+     `is_release`, `create_tag`, and `tag_name` outputs from event + ref.
   2. `lint-and-test` on `ubuntu-latest`: checkout source → setup Python 3.12
-     → `make deps` → `make lint` → `make generate-third-party` → `make test`
-     → upload `coverage.xml`.
-  3. `create-tag` on `ubuntu-latest`: create the release tag derived from
-     `APP_VERSION`, or resolve the pushed tag.
-  4. `build-installer` on `windows-latest`: checkout tagged source → setup Python 3.12
-     → `make deps` → `make fetch-ffmpeg` (validates pinned SHA-256 against the
-     configured archive filename, not any redirected CDN UUID path) →
-     `make generate-third-party` → `make test` → ensure NSIS is installed and on
-     `PATH` → `make installer` →
-     upload the installer artifact.
-  5. `release` on `ubuntu-latest`: download the installer artifact and publish the
-     GitHub release with generated notes via `softprops/action-gh-release`.
+     → `make deps` (writes `_version.py` for the editable install) →
+     `make lint` → `make generate-third-party` → `make test` → upload
+     `coverage.xml`.
+  3. `create-tag` on `ubuntu-latest` (gated on `is_release`): create the tag
+     via `gh api repos/.../git/refs` when `create_tag=true`, or resolve the
+     existing tag SHA when `create_tag=false`.
+  4. `build-installer` on `windows-latest` (gated on `is_release`): checkout
+     the tag → setup Python 3.12 →
+     `python scripts/write_version.py --tag "${TAG_NAME}"` → `make deps` →
+     `make fetch-ffmpeg` (validates pinned SHA-256 against the configured
+     archive filename, not any redirected CDN UUID path) →
+     `make generate-third-party` → `make test` → ensure NSIS is installed and
+     on `PATH` → `make installer` → upload the installer artifact.
+  5. `release` on `ubuntu-latest` (gated on `is_release`): download the
+     installer artifact and publish the GitHub release with notes generated
+     by `scripts/release_notes.py` via `softprops/action-gh-release`.
 
 ---
 

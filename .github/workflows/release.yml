@@ -9,112 +9,51 @@ on:
   pull_request:
     branches:
       - master
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create tag and publish a release (master or an existing tag only)'
+        type: boolean
+        default: false
 
 permissions:
   actions: read
   contents: write
-  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
-  sync-version:
-    name: Sync Release Version
+  resolve:
+    name: Resolve Release Info
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     outputs:
-      tag_name: ${{ steps.resolve.outputs.tag_name || steps.branch.outputs.tag_name }}
-      skip_release: ${{ steps.pr.outputs.skip_release || steps.resolve.outputs.skip_release || steps.branch.outputs.skip_release }}
+      is_release: ${{ steps.r.outputs.is_release }}
+      create_tag: ${{ steps.r.outputs.create_tag }}
+      tag_name: ${{ steps.r.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - name: Resolve pull request
-        id: pr
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "skip_release=false" >> "$GITHUB_OUTPUT"
-
-      - name: Validate pushed tag
-        id: resolve
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          tag_name="${GITHUB_REF_NAME}"
-          if [[ ! "${tag_name}" == v* ]]; then
-            echo "Expected a v-prefixed release tag, got '${tag_name}'"
-            exit 1
-          fi
-          app_version=$(PYTHONPATH=src python - <<'PY'
-          from stormfuse.config import APP_VERSION
-          print(APP_VERSION)
-          PY
-          )
-          expected_tag="v${app_version}"
-          if [[ "${tag_name}" != "${expected_tag}" ]]; then
-            echo "Tag ${tag_name} does not match APP_VERSION ${app_version}"
-            exit 1
-          fi
-          echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
-          echo "skip_release=false" >> "$GITHUB_OUTPUT"
-
-      - name: Sync branch version
-        id: branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      - name: Resolve release info
+        id: r
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch --tags --force origin
-          git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=v:refname > /tmp/release-tags.txt
-          result=$(python scripts/sync_release_version.py \
-            --root . \
-            --tags-file /tmp/release-tags.txt \
-            --date "$(date -u +%F)" \
-            --write)
-          echo "${result}"
-          tag_name=$(python -c "import json, sys; print(json.loads(sys.argv[1])['tag_name'])" "${result}")
-          bumped=$(python -c "import json, sys; print(str(json.loads(sys.argv[1])['bumped']).lower())" "${result}")
-
-          if [[ "${bumped}" == "true" ]]; then
-            bump_branch="release/${tag_name}"
-            git add src/stormfuse/config.py README.md CHANGELOG.md
-            git commit -m "Release ${tag_name}"
-            git push --force-with-lease origin "HEAD:${bump_branch}"
-            gh pr create \
-              --base master \
-              --head "${bump_branch}" \
-              --title "Release ${tag_name}" \
-              --body "Automated APP_VERSION release bump for ${tag_name}." \
-              || gh pr view "${bump_branch}" --json url
-            gh pr merge --auto --squash "${bump_branch}"
-            echo "skip_release=true" >> "$GITHUB_OUTPUT"
-            echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if git rev-parse -q --verify "refs/tags/${tag_name}" >/dev/null; then
-            echo "Tag ${tag_name} already exists; APP_VERSION sync should have bumped it"
-            exit 1
-          fi
-
-          echo "skip_release=false" >> "$GITHUB_OUTPUT"
-          echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          DISPATCH_RELEASE: ${{ inputs.release }}
+        run: python scripts/release_info.py
 
   lint-and-test:
     name: Lint & Test
-    needs: sync-version
-    if: needs.sync-version.outputs.skip_release != 'true'
+    needs: resolve
     runs-on: ubuntu-latest
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -170,54 +109,45 @@ jobs:
 
   create-tag:
     name: Create Release Tag
-    if: github.event_name != 'pull_request' && needs.sync-version.outputs.skip_release != 'true'
-    needs: [sync-version, lint-and-test]
+    if: needs.resolve.outputs.is_release == 'true'
+    needs: [resolve, lint-and-test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     outputs:
-      tag_name: ${{ steps.tag.outputs.tag_name }}
+      tag_name: ${{ needs.resolve.outputs.tag_name }}
+      tag_sha: ${{ steps.tag.outputs.tag_sha }}
+    env:
+      TAG_NAME: ${{ needs.resolve.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ needs.resolve.outputs.create_tag == 'true' && 'master' || format('refs/tags/{0}', needs.resolve.outputs.tag_name) }}
 
       - name: Create or resolve tag
         id: tag
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag_name="${{ needs.sync-version.outputs.tag_name }}"
-          if [[ -z "${tag_name}" ]]; then
-            echo "Release tag output was empty"
-            exit 1
-          fi
-
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
+          if [[ "${{ needs.resolve.outputs.create_tag }}" != "true" ]]; then
+            echo "tag_sha=$(git rev-parse refs/tags/${TAG_NAME})" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
-          git fetch --tags --force origin
-          if git rev-parse -q --verify "refs/tags/${tag_name}" >/dev/null; then
-            echo "Tag ${tag_name} already exists"
-            exit 1
-          fi
-
           commit_sha=$(git rev-parse HEAD)
           gh api "repos/${{ github.repository }}/git/refs" \
             --method POST \
-            --field "ref=refs/tags/${tag_name}" \
+            --field "ref=refs/tags/${TAG_NAME}" \
             --field "sha=${commit_sha}"
-          echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
+          echo "tag_sha=${commit_sha}" >> "$GITHUB_OUTPUT"
 
   build-installer:
     name: Build Installer
-    if: github.event_name != 'pull_request' && needs.sync-version.outputs.skip_release != 'true'
-    needs: [sync-version, lint-and-test, create-tag]
+    if: needs.resolve.outputs.is_release == 'true'
+    needs: [resolve, create-tag]
     runs-on: windows-latest
     env:
-      TAG_NAME: ${{ needs.create-tag.outputs.tag_name }}
+      TAG_NAME: ${{ needs.resolve.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -231,6 +161,10 @@ jobs:
           cache-dependency-path: |
             requirements-dev.txt
             pyproject.toml
+
+      - name: Write release version file
+        shell: bash
+        run: python scripts/write_version.py --tag "${TAG_NAME}"
 
       - name: Install dependencies
         shell: bash
@@ -280,11 +214,11 @@ jobs:
 
   release:
     name: Create Release
-    if: github.event_name != 'pull_request' && needs.sync-version.outputs.skip_release != 'true'
-    needs: [sync-version, lint-and-test, create-tag, build-installer]
+    if: needs.resolve.outputs.is_release == 'true'
+    needs: [resolve, create-tag, build-installer]
     runs-on: ubuntu-latest
     env:
-      TAG_NAME: ${{ needs.create-tag.outputs.tag_name }}
+      TAG_NAME: ${{ needs.resolve.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -301,6 +235,8 @@ jobs:
 
       - name: Generate release notes from changelog
         id: release_notes
+        env:
+          CURRENT_TAG: ${{ env.TAG_NAME }}
         run: |
           PREV_TAG=$(python - <<'PY'
           import json
@@ -335,7 +271,6 @@ jobs:
           print(tag)
           PY
           )
-          CURRENT_TAG="${{ env.TAG_NAME }}"
 
           CHANGELOG_SECTION=""
           if [ -f CHANGELOG.md ]; then
@@ -355,8 +290,6 @@ jobs:
             echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${CURRENT_TAG}"
             echo "RELEASE_EOF"
           } >> "$GITHUB_OUTPUT"
-        env:
-          CURRENT_TAG: ${{ env.TAG_NAME }}
 
       - name: Create release
         uses: softprops/action-gh-release@v3

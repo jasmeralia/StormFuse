@@ -2,11 +2,12 @@
 ; Requires NSIS 3.x with MultiUser plugin
 
 !define APP_NAME "StormFuse"
-; APP_VERSION is defined in the generated build/version.nsh (written by stormfuse.spec).
-; Never hardcode the version here — change src/stormfuse/config.py:APP_VERSION instead.
+; APP_VERSION is defined in the generated build/version.nsh (written by stormfuse.spec
+; from src/stormfuse/_version.py — see scripts/write_version.py).
+; Never hardcode the version here.
 !include "..\version.nsh"
 !define APP_PUBLISHER "Winds of Storm"
-!define APP_URL "https://github.com/winds-of-storm/stormfuse"
+!define APP_URL "https://github.com/jasmeralia/stormfuse"
 !define INSTALLER_NAME "StormFuse-Setup-${APP_VERSION}.exe"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 !define REG_KEY "Software\StormFuse"

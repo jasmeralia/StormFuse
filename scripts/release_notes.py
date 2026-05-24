@@ -32,9 +32,18 @@ def extract_sections(changelog: str, current_version: str, prev_version: str) ->
 
     output_sections: list[str] = []
     found_prev = False
+    has_current = any(section_version(section) == current_version for section in sections)
+
     for section in sections:
         version = section_version(section)
         if not version:
+            continue
+        # When CHANGELOG.md hasn't yet been promoted from [Unreleased] to the
+        # versioned header (the workflow doesn't mutate CHANGELOG itself —
+        # AGENTS.md release checklist covers post-release housekeeping), the
+        # current tag's notes live under [Unreleased].
+        if version == "Unreleased" and not has_current:
+            output_sections.append(section)
             continue
         if version == prev_version:
             found_prev = True

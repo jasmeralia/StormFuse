@@ -7,7 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.26] - 2026-05-24
+### Changed
+
+#### Release pipeline (§10, §16)
+- Version is now derived from the latest `vX.Y.Z` git tag instead of an
+  `APP_VERSION` literal in source. `src/stormfuse/_version.py` is generated at
+  build time (gitignored) by `scripts/write_version.py`.
+- `make deps` / `make installer` invoke `make version-file` to populate
+  `_version.py` with a `git describe`-derived dev version (or `0.0.0+dev` when
+  no tags are reachable). CI overrides with `--tag vX.Y.Z` for releases.
+- Release workflow eliminates the bump-PR loop: it computes the next patch
+  version from existing tags, creates the tag via the GitHub API on the merge
+  commit, builds, and publishes — all in one run. No more `release/vX.Y.Z` PR
+  or auto-merge step.
+- New `workflow_dispatch` trigger on `release.yml` for manual builds and
+  releases against any branch or existing tag.
+- CHANGELOG is no longer rewritten by CI (master is branch-protected against
+  direct pushes). Contributors promote `[Unreleased]` → `[X.Y.Z]` themselves
+  in the PR that follows a release. See AGENTS.md release checklist.
+
+### Removed
+
+- `scripts/sync_release_version.py` and its test — obsoleted by the new
+  tag-derived versioning.
+- AGENTS.md workflow-change versioning rule — no longer needed.
+
+### Fixed
+
+- Updated stale `github.com/winds-of-storm/stormfuse` references in
+  `build/generate_third_party.py` and `build/installer/stormfuse.nsi` to
+  `github.com/jasmeralia/stormfuse`.
 
 ## [1.0.25] - 2026-05-14
 

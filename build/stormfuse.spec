@@ -6,11 +6,20 @@ from pathlib import Path
 
 REPO_ROOT = Path(SPEC).parent.parent  # type: ignore[name-defined]
 
-# Single source of truth: src/stormfuse/config.py:APP_VERSION
-# Read the version and write build/version.nsh so the NSIS installer
-# never needs a hardcoded version string.
+# Version comes from src/stormfuse/_version.py, written by
+# scripts/write_version.py (CI uses --tag vX.Y.Z; local dev derives from git
+# describe via the Makefile). The file is gitignored; if missing here, the
+# installer build is being run out of order — fail loudly rather than ship
+# a 0.0.0+dev installer.
 sys.path.insert(0, str(REPO_ROOT / "src"))
-from stormfuse.config import APP_VERSION  # noqa: E402
+try:
+    from stormfuse._version import __version__ as APP_VERSION  # noqa: E402
+except ImportError as exc:
+    raise SystemExit(
+        "src/stormfuse/_version.py not found. "
+        "Run `python scripts/write_version.py --tag vX.Y.Z` (release) "
+        "or `make version-file` (local) before building the installer."
+    ) from exc
 
 (REPO_ROOT / "build" / "version.nsh").write_text(
     f'!define APP_VERSION "{APP_VERSION}"\n',

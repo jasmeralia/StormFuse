@@ -1,8 +1,8 @@
 # StormFuse
 
 [![CI / Build & Release](https://github.com/jasmeralia/StormFuse/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/jasmeralia/StormFuse/actions/workflows/release.yml)
-[![Release](https://img.shields.io/github/v/release/jasmeralia/StormFuse?include_prereleases&sort=semver&label=Release)](https://github.com/jasmeralia/StormFuse/releases/tag/v1.0.26)
-[![Coverage](https://codecov.io/gh/jasmeralia/StormFuse/branch/v1.0.26/graph/badge.svg)](https://app.codecov.io/gh/jasmeralia/StormFuse/branch/v1.0.26)
+[![Release](https://img.shields.io/github/v/release/jasmeralia/StormFuse?include_prereleases&sort=semver&label=Release)](https://github.com/jasmeralia/StormFuse/releases/latest)
+[![Coverage](https://codecov.io/gh/jasmeralia/StormFuse/branch/master/graph/badge.svg)](https://app.codecov.io/gh/jasmeralia/StormFuse/branch/master)
 
 StormFuse is a Windows desktop app that wraps bundled `ffmpeg` and `ffprobe` to do two jobs cleanly: combine multiple MKV/MP4 files into one output, and compress a single MKV/MP4 under a target size ceiling. It prefers NVIDIA NVENC when a working GPU path is available, falls back silently to `libx264` when it is not, and keeps detailed structured logs so failures are diagnosable.
 

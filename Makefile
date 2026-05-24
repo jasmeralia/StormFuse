@@ -15,7 +15,7 @@ PIP      := $(PY) -m pip
 FFMPEG_SHA256_FILE := build/ffmpeg.sha256
 FFMPEG_DIR         := resources/ffmpeg
 
-.PHONY: venv deps fetch-ffmpeg generate-third-party run lint lintfix format test test-functional test-all installer clean
+.PHONY: venv deps version-file fetch-ffmpeg generate-third-party run lint lintfix format test test-functional test-all installer clean
 
 venv:
 	@command -v $(PYTHON) >/dev/null 2>&1 || \
@@ -23,10 +23,21 @@ venv:
 	$(PYTHON) -m venv $(VENV)
 	@echo "Virtualenv created at $(VENV). Run 'make deps' next."
 
-deps: venv
+VERSION_FILE := src/stormfuse/_version.py
+
+deps: venv version-file
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements-dev.txt
 	$(PIP) install --no-build-isolation -e .
+
+# Writes src/stormfuse/_version.py (gitignored) only when missing — preserves a
+# CI-written release version (`python scripts/write_version.py --tag vX.Y.Z`).
+# Locally derives a dev version from `git describe`, falling back to 0.0.0+dev.
+# Delete the file to regenerate (e.g. after new tags or dirty-state changes).
+version-file: $(VERSION_FILE)
+
+$(VERSION_FILE):
+	$(PYTHON) scripts/write_version.py --root .
 
 fetch-ffmpeg:
 	@echo "Downloading pinned ffmpeg build..."
@@ -63,7 +74,7 @@ test-functional:
 test-all:
 	$(PY) -m pytest tests/ -v --cov=stormfuse --cov-report=xml
 
-installer:
+installer: version-file
 	@echo "Building installer (Windows only)..."
 	$(PY) build/generate_third_party.py
 	$(PY) -m PyInstaller build/stormfuse.spec --noconfirm
@@ -71,6 +82,7 @@ installer:
 
 clean:
 	rm -rf dist/ .pytest_cache/ .venv/ .mypy_cache/ .ruff_cache/ coverage.xml junit.xml
+	rm -f $(VERSION_FILE)
 	@if [ -d build ]; then \
 		find build -mindepth 1 -maxdepth 1 \
 			! -name installer \

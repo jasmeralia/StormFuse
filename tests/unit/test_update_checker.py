@@ -19,7 +19,11 @@ from stormfuse.core.update_checker import (
 
 
 def _next_patch_version() -> str:
-    major, minor, patch = APP_VERSION.split(".")
+    # APP_VERSION may include +dev metadata in non-release builds — strip it
+    # so the synthetic "next patch" version we hand to the update-check
+    # responses below is a clean semver string.
+    base = APP_VERSION.split("+", 1)[0]
+    major, minor, patch = base.split(".")
     return f"{major}.{minor}.{int(patch) + 1}"
 
 

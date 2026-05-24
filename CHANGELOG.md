@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+#### Compress tab (§6.3)
+- Target-size slider minimum raised from 1.0 GB to 5.0 GB. Below 5 GB has
+  not been a realistic target for the supported workflows.
+- File rejection threshold is now dynamic against the **current** slider
+  value, not a fixed 9.5 GB constant. An 8 GB source is refused at the
+  default 9.5 GB target (already smaller than the target) but accepted
+  after lowering the slider to e.g. 5 GB; the slider's max then snaps to
+  7.9 GB so the user can't re-raise the target above the source size.
+  The rejection dialog now tells the user to reduce the slider first.
+
+## [1.0.27] - 2026-05-24
+
 ### Added
 
 #### Compress tab (§6.3)

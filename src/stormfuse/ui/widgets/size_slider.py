@@ -8,14 +8,14 @@ from PyQt6.QtWidgets import QHBoxLayout, QLabel, QSlider, QVBoxLayout, QWidget
 
 
 class SizeSlider(QWidget):
-    """Slider from 1.0 GB to 10.0 GB in 0.1 GB steps.
+    """Slider from 5.0 GB to 10.0 GB in 0.1 GB steps.
 
     Emits value_changed(gb: float) whenever the value changes.
     """
 
     value_changed = pyqtSignal(float)
 
-    _MIN_GB = 10  # 1.0 GB in tenths
+    _MIN_GB = 50  # 5.0 GB in tenths
     _MAX_GB = 100  # 10.0 GB in tenths
     _DEFAULT_GB = 95  # 9.5 GB
 
@@ -34,7 +34,7 @@ class SizeSlider(QWidget):
         self._max_label = QLabel(self._format_gb(self._MAX_GB))
 
         row = QHBoxLayout()
-        row.addWidget(QLabel("1.0 GB"))
+        row.addWidget(QLabel("5.0 GB"))
         row.addWidget(self._slider, stretch=1)
         row.addWidget(self._max_label)
         row.addWidget(self._gb_label)
@@ -60,7 +60,7 @@ class SizeSlider(QWidget):
         return self._slider.value() / 10.0
 
     def set_max_gb(self, max_gb: float) -> None:
-        """Cap the slider's maximum at *max_gb* GB (clamped to [1.0, 10.0]).
+        """Cap the slider's maximum at *max_gb* GB (clamped to [5.0, 10.0]).
 
         Used by the Compress tab to make sure a target that exceeds the
         source file size — which would be a no-op compression — cannot be

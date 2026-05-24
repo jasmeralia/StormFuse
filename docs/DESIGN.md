@@ -289,6 +289,12 @@ and enables Cancel. No queue, no parallelism — this is intentional.
 ### 6.3 Compress tab
 
 - Input: file field + **Browse…**.
+- **Source size readout** under the input row (e.g. `Source size: 12.34 GB`),
+  visible whenever a file is loaded.
+- **Pre-load size guard:** any selected file under `MIN_SOURCE_BYTES`
+  (9.5 GB decimal, matching the default slider target) is rejected with a
+  warning dialog and not loaded — compression has nothing useful to do below
+  the slider's own target.
 - Target size slider with GB readout to one decimal and a computed video-bitrate
   preview below it (`≈ 8400 kbps`).
 - 2-pass checkbox.

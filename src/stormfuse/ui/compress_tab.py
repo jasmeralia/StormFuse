@@ -31,6 +31,15 @@ from stormfuse.ui.settings import KEY_COMPRESS_IN, KEY_COMPRESS_OUT, last_dir, r
 from stormfuse.ui.theme import show_warning_message
 from stormfuse.ui.widgets.size_slider import SizeSlider
 
+# The compress workflow exists to fit a source under the 10 GB MFC Share
+# per-file limit. Anything already under the default 9.5 GB slider target has
+# nothing useful to gain from a re-encode, so we reject the file outright.
+MIN_SOURCE_BYTES = 9_500_000_000
+
+
+def _format_file_size_gb(size_bytes: int) -> str:
+    return f"{size_bytes / 1_000_000_000:.2f} GB"
+
 
 class CompressTab(QWidget):
     """The "Compress" tab."""
@@ -43,11 +52,13 @@ class CompressTab(QWidget):
         parent: QWidget | None = None,
         *,
         probe_file: Callable[[Path], FileProbe] | None = None,
+        file_size: Callable[[Path], int] | None = None,
     ) -> None:
         super().__init__(parent)
         self._encoder: EncoderChoice = EncoderChoice.LIBX264
         self._duration_sec: float = 0.0
         self._probe_file = probe_file or self._default_probe_file
+        self._file_size = file_size or (lambda p: p.stat().st_size)
         self._probe_request_id = 0
         self._probe_jobs: list[ProbeFilesJob] = []
         self._probe_threads: list[QThread] = []
@@ -64,6 +75,10 @@ class CompressTab(QWidget):
         input_row.addWidget(QLabel("Input:"))
         input_row.addWidget(self._input_field, stretch=1)
         input_row.addWidget(input_browse)
+
+        # --- Source size readout ---
+        self._source_size_label = QLabel("")
+        self._source_size_label.setObjectName("sourceSize")
 
         # --- Size slider ---
         self._slider = SizeSlider()
@@ -125,6 +140,7 @@ class CompressTab(QWidget):
 
         layout = QVBoxLayout(self)
         layout.addLayout(input_row)
+        layout.addWidget(self._source_size_label)
         layout.addWidget(self._slider)
         layout.addWidget(self._two_pass_cb)
         layout.addWidget(self._encoder_label)
@@ -276,7 +292,25 @@ class CompressTab(QWidget):
         return probe(ffprobe_path(), path)
 
     def _set_input_path(self, path: Path) -> None:
+        try:
+            size_bytes = self._file_size(path)
+        except OSError as exc:
+            show_warning_message(
+                self,
+                "Cannot read file",
+                f"Could not read {path.name}: {exc}",
+            )
+            return
+        if size_bytes < MIN_SOURCE_BYTES:
+            show_warning_message(
+                self,
+                "File already under target",
+                f"{path.name} is {_format_file_size_gb(size_bytes)}, already under the "
+                f"9.5 GB target. No compression is needed — use the file as-is.",
+            )
+            return
         self._input_field.setText(str(path))
+        self._source_size_label.setText(f"Source size: {_format_file_size_gb(size_bytes)}")
         if not self._out_filename.text():
             stem = path.stem.removesuffix("-combined")
             self._out_filename.setText(f"{stem}-compressed.mp4")

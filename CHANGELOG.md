@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Compress tab (§6.3)
+- Source file size readout displayed under the input row whenever a file is
+  loaded (e.g. `Source size: 12.34 GB`).
+- Pre-load size guard: files already under 9.5 GB (the default slider target)
+  are rejected with a warning dialog instead of being loaded — compression
+  has nothing useful to do below the slider's own target.
+
+## [1.0.26] - 2026-05-24
+
 ### Changed
 
 #### Release pipeline (§10, §16)

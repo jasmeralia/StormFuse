@@ -14,7 +14,7 @@ def test_config_uses_generated_version_when_present() -> None:
     # --tag` in CI); when present, config exposes its value verbatim.
     from stormfuse import _version, config
 
-    assert config.APP_VERSION == _version.__version__
+    assert _version.__version__ == config.APP_VERSION
 
 
 def test_config_falls_back_to_dev_sentinel_when_version_missing(

@@ -269,7 +269,7 @@ def truncate_active_fault_log(path: Path = LOG_DIR / "fatal_errors.log") -> bool
         handle.seek(0)
         handle.truncate()
         handle.flush()
-    except (AttributeError, OSError, ValueError):
+    except AttributeError, OSError, ValueError:
         return False
     return True
 
@@ -279,7 +279,7 @@ def install_signal_hooks() -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
             signal.signal(sig, _handle_signal)
-        except (ValueError, OSError):
+        except ValueError, OSError:
             continue
 
 

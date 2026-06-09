@@ -60,7 +60,7 @@ StormFuse v<VERSION>
 Licensed under GPL v3.
 
 Built with:
-  Python 3.12+ (PSF-2.0)
+  Python 3.14+ (PSF-2.0)
   PyQt6 (GPL v3) — Riverbank Computing
   FFmpeg (GPL v2) — ffmpeg.org, build by gyan.dev
   PyInstaller, NSIS
@@ -80,7 +80,7 @@ Developed with assistance from Claude (Anthropic) and Codex (OpenAI).
 | Concern | Decision |
 |---------|----------|
 | Target OS | Windows 10 / 11 (64-bit) |
-| Python | 3.12+ (bundled by PyInstaller) |
+| Python | 3.14+ (bundled by PyInstaller) |
 | UI toolkit | PyQt6 |
 | Media toolchain | `ffmpeg.exe` + `ffprobe.exe` from gyan.dev "essentials" build, pinned by SHA-256 |
 | Installer | PyInstaller (onedir) → NSIS |
@@ -643,7 +643,7 @@ Light, not exhaustive. `pytest-qt` drives:
 
 ### 12.1 Local developer build
 
-- `make venv` creates `.venv` with Python 3.12.
+- `make venv` creates `.venv` with Python 3.14.
 - `make deps` installs `-r requirements-dev.txt` (which transitively pulls in
   `requirements.txt`).
 - `make run` launches the app from source using the bundled ffmpeg under
@@ -693,7 +693,7 @@ workflow for `signtool` to be added later when a cert is available.
 All three of the following must pass with zero warnings before merge:
 
 - **ruff** — project config in `pyproject.toml`; selected rulesets: E, F, W, I,
-  B, UP, SIM, RUF, PL (selected). Line length 100. Targets `py312`.
+  B, UP, SIM, RUF, PL (selected). Line length 100. Targets `py314`.
 - **mypy** — `--strict` mode for `src/stormfuse/`. `tests/` may use `--strict-optional`
   but relaxed everywhere else. Qt types come from the official PyQt6 stubs.
 - **pylint** — with a project `.pylintrc` that disables rules duplicated by ruff
@@ -785,7 +785,7 @@ StormFuse/
 
 | Target | Action |
 |--------|--------|
-| `make venv` | Create `.venv/` with Python 3.12 (fails clearly if absent) |
+| `make venv` | Create `.venv/` with Python 3.14 (fails clearly if absent) |
 | `make deps` | Activate venv and `pip install -r requirements-dev.txt` |
 | `make fetch-ffmpeg` | Download + SHA-256 verify + extract ffmpeg into `resources/ffmpeg/` |
 | `make run` | Launch app from source |
@@ -841,7 +841,7 @@ plus any type stubs.
 - Jobs:
   1. `resolve` on `ubuntu-latest`: runs `scripts/release_info.py` and emits
      `is_release`, `create_tag`, and `tag_name` outputs from event + ref.
-  2. `lint-and-test` on `ubuntu-latest`: checkout source → setup Python 3.12
+  2. `lint-and-test` on `ubuntu-latest`: checkout source → setup Python 3.14
      → `make deps` (writes `_version.py` for the editable install) →
      `make lint` → `make generate-third-party` → `make test` → upload
      `coverage.xml`.
@@ -849,7 +849,7 @@ plus any type stubs.
      via `gh api repos/.../git/refs` when `create_tag=true`, or resolve the
      existing tag SHA when `create_tag=false`.
   4. `build-installer` on `windows-latest` (gated on `is_release`): checkout
-     the tag → setup Python 3.12 →
+     the tag → setup Python 3.14 →
      `python scripts/write_version.py --tag "${TAG_NAME}"` → `make deps` →
      `make fetch-ffmpeg` (validates pinned SHA-256 against the configured
      archive filename, not any redirected CDN UUID path) →

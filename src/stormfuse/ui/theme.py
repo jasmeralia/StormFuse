@@ -54,12 +54,12 @@ def windows_prefers_dark() -> bool:
             r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
         ) as key:
             value, _value_type = winreg.QueryValueEx(key, "AppsUseLightTheme")
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return False
 
     try:
         return int(value) == 0
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
 
 
@@ -177,7 +177,7 @@ def apply_title_bar_theme(widget: QWidget, mode: ResolvedThemeMode | None = None
     resolved = mode or current_resolved_theme()
     try:
         hwnd = int(widget.winId())
-    except (AttributeError, RuntimeError):
+    except AttributeError, RuntimeError:
         return False
 
     windll = getattr(ctypes, "windll", None)

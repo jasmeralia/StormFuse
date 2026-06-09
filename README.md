@@ -122,7 +122,7 @@ StormFuse development goes through the `Makefile`.
 
 | Command | Purpose |
 |---------|---------|
-| `make venv` | Create `.venv/` with Python 3.12 |
+| `make venv` | Create `.venv/` with Python 3.14 |
 | `make deps` | Install runtime and development dependencies and editable package metadata |
 | `make fetch-ffmpeg` | Download and verify the pinned gyan.dev ffmpeg build into `resources/ffmpeg/` |
 | `make run` | Launch StormFuse from source |
@@ -185,7 +185,7 @@ Installer license artifacts live under `resources/licenses/`.
 
 ## Credits
 
-- Python 3.12+
+- Python 3.14+
 - PyQt6 by Riverbank Computing
 - FFmpeg by the FFmpeg project, using the gyan.dev build
 - PyInstaller and NSIS for packaging

@@ -313,5 +313,5 @@ class LogUploader:
     def _detect_encoder() -> EncoderChoice:
         try:
             return detect_encoder(ffmpeg_path())
-        except (FfmpegNotFoundError, OSError):
+        except FfmpegNotFoundError, OSError:
             return EncoderChoice.LIBX264

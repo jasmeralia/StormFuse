@@ -5,7 +5,7 @@ PYTHON   := python
 VENV_BIN := $(VENV)/Scripts
 PY       := $(VENV_BIN)/python.exe
 else
-PYTHON   := python3.12
+PYTHON   := python3.14
 VENV_BIN := $(VENV)/bin
 PY       := $(VENV_BIN)/python
 endif
@@ -19,7 +19,7 @@ FFMPEG_DIR         := resources/ffmpeg
 
 venv:
 	@command -v $(PYTHON) >/dev/null 2>&1 || \
-		{ echo "ERROR: $(PYTHON) not found. Install Python 3.12."; exit 1; }
+		{ echo "ERROR: $(PYTHON) not found. Install Python 3.14."; exit 1; }
 	$(PYTHON) -m venv $(VENV)
 	@echo "Virtualenv created at $(VENV). Run 'make deps' next."
 

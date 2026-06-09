@@ -74,7 +74,7 @@ Layering rules (enforced by pylint + CI, not just convention):
 
 | Command | What it does |
 |---------|--------------|
-| `make venv` | Creates `.venv/` with Python 3.12 |
+| `make venv` | Creates `.venv/` with Python 3.14 |
 | `make deps` | `pip install -r requirements-dev.txt` inside `.venv` |
 | `make fetch-ffmpeg` | Downloads pinned gyan.dev ffmpeg, verifies SHA-256, extracts into `resources/ffmpeg/` |
 | `make run` | Launches the app from source |

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "stormfuse"
 dynamic = ["version"]
 description = "Combine and compress video files using ffmpeg"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "Morgan Blackthorne", email = "morgan@windsofstorm.net" }]
 dependencies = ["PyQt6>=6.6"]
@@ -24,7 +24,7 @@ version = {attr = "stormfuse._version.__version__"}
 # ruff
 # ---------------------------------------------------------------------------
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 line-length = 100
 src = ["src", "tests"]
 
@@ -49,7 +49,7 @@ ignore = [
 # mypy
 # ---------------------------------------------------------------------------
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 strict = true
 files = ["src/stormfuse"]
 

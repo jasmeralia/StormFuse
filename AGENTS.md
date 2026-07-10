@@ -8,7 +8,7 @@ every session.
 
 ## 1. What StormFuse is
 
-StormFuse is a Windows desktop app (PyQt6) that wraps `ffmpeg` / `ffprobe` to do
+StormFuse is a desktop app (PyQt6) that wraps `ffmpeg` / `ffprobe` to do
 exactly two things: **combine** multiple MKV/MP4 files into one, and **compress**
 a single video to fit under a size ceiling (MFC Share's 10 GB upload limit).
 NVENC is preferred; `libx264` is the silent fallback. Process boundary is the
@@ -31,7 +31,7 @@ consult docs/DESIGN.md and update it if scope shifts.
 | `src/stormfuse/core/log_uploader.py` | Diagnostic log bundle upload client/service. |
 | `src/stormfuse/core/update_checker.py` | GitHub Releases update checks and installer downloads. |
 | `tests/unit/` | Linux-runnable, no real subprocesses. |
-| `tests/functional/` | Windows-only; auto-skipped elsewhere. |
+| `tests/functional/` | Real ffmpeg/subprocess coverage for Windows and native Linux; WSL is opt-in. |
 | `resources/` | Icons, license texts, bundled `ffmpeg/` binaries (gitignored). |
 | `build/installer/` | NSIS script, ffmpeg SHA-256 pin. |
 | `.github/workflows/` | `ci.yml` (lint + unit), `release.yml` (Windows installer). |
@@ -61,12 +61,14 @@ Layering rules (enforced by pylint + CI, not just convention):
 
 - Development is usually done on **Linux** (or WSL) — the unit suite is designed
   to pass there.
-- The app only *runs* on **Windows**. Functional tests, Explorer integration,
-  `ffmpeg.exe`/NSIS builds all need Windows.
+- Windows remains the primary release target and the only target with an
+  installer package. Native Linux is a supported secondary run target per
+  `LINUX_BUILD.md`, using system `ffmpeg` / `ffprobe` from `PATH` and a
+  PyInstaller onedir build only.
 - Use `if sys.platform == "win32":` guards rather than `try/except ImportError`
-  for platform-specific code paths. Windows-only tests carry
-  `@pytest.mark.windows_only` and are skipped automatically via
-  `tests/conftest.py`.
+  for platform-specific code paths. Functional tests carry
+  `@pytest.mark.functional` and are skipped automatically via `tests/conftest.py`
+  outside Windows/native Linux; WSL requires explicit opt-in.
 
 ---
 
@@ -82,9 +84,9 @@ Layering rules (enforced by pylint + CI, not just convention):
 | `make lintfix` | `ruff format` + `ruff check --fix` — auto-fixes most ruff violations |
 | `make format` | alias for `lintfix` (same operation) |
 | `make test` | Unit only (default — runs on Linux) |
-| `make test-functional` | Functional (Windows) |
+| `make test-functional` | Functional (Windows or native Linux; WSL opt-in) |
 | `make test-all` | Both |
-| `make installer` | PyInstaller → NSIS → `dist/StormFuse-Setup-<ver>.exe` (Windows) |
+| `make installer` | Windows: PyInstaller → NSIS installer; Linux: PyInstaller onedir executable |
 | `make clean` | Delete `build/`, `dist/`, `.pytest_cache/`, `__pycache__/`, `.venv/` |
 
 **Linting workflow**: always run `make lintfix` before `make lint`. `lintfix`

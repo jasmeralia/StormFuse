@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/jasmeralia/StormFuse?include_prereleases&sort=semver&label=Release)](https://github.com/jasmeralia/StormFuse/releases/latest)
 [![Coverage](https://codecov.io/gh/jasmeralia/StormFuse/branch/master/graph/badge.svg)](https://app.codecov.io/gh/jasmeralia/StormFuse/branch/master)
 
-StormFuse is a Windows desktop app that wraps bundled `ffmpeg` and `ffprobe` to do two jobs cleanly: combine multiple MKV/MP4 files into one output, and compress a single MKV/MP4 under a target size ceiling. It prefers NVIDIA NVENC when a working GPU path is available, falls back silently to `libx264` when it is not, and keeps detailed structured logs so failures are diagnosable.
+StormFuse is a desktop app, primarily packaged for Windows, that wraps `ffmpeg` and `ffprobe` to do two jobs cleanly: combine multiple MKV/MP4 files into one output, and compress a single MKV/MP4 under a target size ceiling. It prefers NVIDIA NVENC when a working GPU path is available, falls back silently to `libx264` when it is not, and keeps detailed structured logs so failures are diagnosable. Native Linux builds are experimental; see [LINUX_BUILD.md](LINUX_BUILD.md).
 
 ## Workflows
 
@@ -40,6 +40,9 @@ Logs live here on Windows:
 
 - `%LOCALAPPDATA%\\StormFuse\\logs\\latest.log`
 - `%LOCALAPPDATA%\\StormFuse\\logs\\stormfuse-YYYYMMDD-HHMMSS-PID.log`
+
+On Linux, logs live under `$XDG_DATA_HOME/StormFuse/logs` when set, otherwise
+`~/.local/share/StormFuse/logs`.
 
 Useful log entry points:
 
@@ -129,9 +132,9 @@ StormFuse development goes through the `Makefile`.
 | `make lintfix` | Run `ruff format` and `ruff check --fix` |
 | `make lint` | Run `ruff`, `mypy`, and `pylint` |
 | `make test` | Run the Linux-compatible unit suite |
-| `make test-functional` | Run Windows-only functional tests |
+| `make test-functional` | Run functional tests on Windows or native Linux; WSL is opt-in |
 | `make test-all` | Run unit and functional tests |
-| `make installer` | Build the Windows installer |
+| `make installer` | Build the Windows installer, or a Linux PyInstaller onedir executable |
 | `make clean` | Remove generated build, test, and virtualenv artifacts |
 
 Typical local setup:
@@ -152,9 +155,9 @@ Before landing a change:
 1. Run `make lintfix`.
 2. Run `make lint`.
 3. Run `make test`.
-4. Run `make test-functional` as well if you changed Windows-specific or subprocess behavior.
+4. Run `make test-functional` as well if you changed platform-specific or subprocess behavior.
 
-Unit tests are designed to run on Linux or WSL. The full app, installer, and functional suite are Windows-oriented.
+Unit tests are designed to run on Linux or WSL. The full app and functional suite run on Windows and native Linux; WSL functional tests are skipped by default. Windows remains the only packaged release target.
 
 ### Adding a new encoder
 

@@ -10,7 +10,8 @@ commit style, etc.) belongs in `AGENTS.md`, not here.
 
 ## Project
 
-**StormFuse** — a Windows PyQt6 app that wraps `ffmpeg`/`ffprobe` to combine
+**StormFuse** — a PyQt6 app, primarily packaged for Windows with an
+experimental native Linux run target, that wraps `ffmpeg`/`ffprobe` to combine
 videos and compress them under a size ceiling. Full specification in
 [`docs/DESIGN.md`](docs/DESIGN.md).
 

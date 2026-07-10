@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-StormFuse is a focused Windows desktop application that wraps `ffmpeg` / `ffprobe`
+StormFuse is a focused desktop application that wraps `ffmpeg` / `ffprobe`
 to perform exactly two workflows end-to-end:
 
 1. **Combine** — join multiple video files (MKV and/or MP4) into a single output,
@@ -85,6 +85,11 @@ Developed with assistance from Claude (Anthropic) and Codex (OpenAI).
 | Media toolchain | `ffmpeg.exe` + `ffprobe.exe` from gyan.dev "essentials" build, pinned by SHA-256 |
 | Installer | PyInstaller (onedir) → NSIS |
 | CI | GitHub Actions (`ubuntu-latest` for lint + unit, `windows-latest` for functional + installer) |
+
+Windows remains the primary, officially packaged target. Linux (Ubuntu/Kubuntu
+24.04+) is a secondary experimental run target: PyInstaller onedir executable
+only, no installer package, and `ffmpeg` / `ffprobe` are resolved from the
+system `PATH` instead of bundled.
 
 Unit tests and all non-UI logic are designed to run on Linux so development can happen
 anywhere; anything Windows-specific (Explorer integration, held-file truncation, installer
@@ -343,6 +348,9 @@ and enables Cancel. No queue, no parallelism — this is intentional.
   standard Personalize registry key.
 - Theme changes apply live to the main window and modal dialogs, including About,
   diagnostics, log submission, update prompts, and progress dialogs.
+- In `system` mode, Qt's `colorSchemeChanged` signal is used when available to
+  re-apply the resolved light/dark theme while StormFuse is running. Explicit
+  user-selected `light` or `dark` modes are not overridden by live OS changes.
 - Where supported, top-level windows request a dark native title bar while the
   resolved theme is dark.
 
@@ -360,14 +368,21 @@ and enables Cancel. No queue, no parallelism — this is intentional.
 
 ### 7.1 `locator.py`
 
-Resolves bundled binaries. Resolution order:
+Resolves ffmpeg binaries. Windows resolution order:
 
-1. When running under PyInstaller: `sys._MEIPASS / "resources" / "ffmpeg" / "ffmpeg.exe"`.
-2. When running from source: `<repo_root>/resources/ffmpeg/ffmpeg.exe` (this path
-   is populated by `make installer-deps` or a dev-convenience script; it is
+1. When running under PyInstaller: `sys._MEIPASS / "resources" / "ffmpeg" / "{base}.exe"`.
+2. When running from source: `<repo_root>/resources/ffmpeg/{base}.exe` (this path
+   is populated by `make fetch-ffmpeg` or a dev-convenience script; it is
    `.gitignore`d).
 3. **No PATH fallback.** The app intentionally does not use `ffmpeg` from PATH,
    because the point of bundling is reproducible behavior.
+
+Linux resolution order:
+
+1. PyInstaller bundle: `sys._MEIPASS / "resources" / "ffmpeg" / "{base}"` (forward-compatible; Linux builds do not currently populate it).
+2. Source tree: `<repo_root>/resources/ffmpeg/{base}` (dev convenience for dropped-in static builds).
+3. `shutil.which("{base}")` from system `PATH`.
+4. Raise `FfmpegNotFoundError` with Linux install guidance.
 
 If the binaries cannot be found at startup, a modal error dialog explains the
 install is corrupted and offers to open the repo's troubleshooting section.
@@ -583,7 +598,7 @@ Implementation:
 ```
 tests/
   unit/             # runs anywhere (Linux OK). Target: every PR.
-  functional/       # requires Windows + bundled ffmpeg. Skipped off-Windows.
+  functional/       # requires Windows or native Linux + real ffmpeg subprocesses.
   fixtures/
     generate_media.py   # creates tiny test videos at CI time, not committed
 ```
@@ -605,11 +620,12 @@ Mandatory coverage:
 **No unit test spawns a real subprocess.** All ffmpeg/ffprobe interactions in
 unit tests go through injected fakes.
 
-### 11.3 Functional tests (Windows-only)
+### 11.3 Functional tests
 
-Marked `@pytest.mark.windows_only`. A top-level `conftest.py` applies
-`pytest.skip("requires Windows")` automatically when `sys.platform != "win32"`,
-so running `pytest` on Linux simply skips them.
+Marked `@pytest.mark.functional`. A top-level `conftest.py` skips them when
+`sys.platform` is not `win32` or `linux`. On Linux under WSL, functional tests
+are skipped by default unless `STORMFUSE_RUN_FUNCTIONAL_ON_WSL=1` is set,
+because GPU and subprocess behavior under WSL is intentionally opt-in.
 
 Functional fixtures generate short (~1-2 second) test media via ffmpeg's built-in
 synthetic sources at test setup time (`testsrc2`, `sine`), in multiple
@@ -651,6 +667,8 @@ Light, not exhaustive. `pytest-qt` drives:
 - `make fetch-ffmpeg` downloads the pinned gyan.dev essentials build, verifies
   SHA-256 against `build/ffmpeg.sha256`, extracts `ffmpeg.exe` and `ffprobe.exe`
   into `resources/ffmpeg/`. The path is `.gitignore`d.
+- On Linux, `make run` uses system `ffmpeg` / `ffprobe` from `PATH` when no
+  Linux binaries are present under `resources/ffmpeg/`.
 
 ### 12.2 Installer pipeline
 
@@ -681,7 +699,14 @@ Phase 2 — NSIS (`build/installer/stormfuse.nsi`):
   `%LOCALAPPDATA%\StormFuse` (logs/settings) unless user checks "Remove
   application data" on the uninstall wizard.
 
-### 12.3 Code signing
+### 12.3 Linux onedir build
+
+On Linux, `make installer` runs the same PyInstaller onedir phase and stops
+before NSIS. The output is `dist/StormFuse/StormFuse`; no `.deb`, AppImage,
+snap, Flatpak, `.desktop` file, or application-menu integration is produced.
+See `LINUX_BUILD.md` for native Kubuntu build and run instructions.
+
+### 12.4 Code signing
 
 Out of scope for v1. Design leaves a hook in the NSIS script and the GHA
 workflow for `signtool` to be added later when a cert is available.
@@ -792,9 +817,9 @@ StormFuse/
 | `make lint` | Run ruff, mypy, pylint in that order; fail on any |
 | `make format` | Run `ruff format` + `ruff check --fix` |
 | `make test` | Run unit tests only (default; works on Linux) |
-| `make test-functional` | Run functional tests (Windows; skips elsewhere) |
+| `make test-functional` | Run functional tests (Windows or native Linux; WSL opt-in; skips elsewhere) |
 | `make test-all` | Unit + functional |
-| `make installer` | PyInstaller → NSIS → `dist/StormFuse-Setup-<ver>.exe` |
+| `make installer` | Windows: PyInstaller → NSIS → `dist/StormFuse-Setup-<ver>.exe`; Linux: PyInstaller onedir → `dist/StormFuse/StormFuse` |
 | `make clean` | Remove `dist/`, `.pytest_cache/`, `__pycache__/`, `.venv/`, and generated artifacts under `build/`; keep tracked build sources (`.py`, `.nsi`, `.sha256`, `.spec`) |
 
 `requirements.txt` = runtime deps (`PyQt6`, minimal stdlib-plus).
@@ -911,3 +936,14 @@ Must cover:
 - Decide an icon for `resources/icons/stormfuse.ico` — placeholder at first cut.
 - Version numbering scheme: `0.1.0` for first buildable, semver thereafter.
   Tag format `v0.1.0` triggers release workflow.
+- Linux packaging format decision (snap vs AppImage vs Flatpak vs `.deb` /
+  `.rpm`) — deferred.
+- NVENC robustness: `h264_nvenc` validates the auto-negotiated H.264 level
+  against the requested bitrate and fails outright ("Invalid Level") rather
+  than clamping when the computed bitrate is extreme relative to resolution
+  (observed on real hardware while fixing the Linux functional test suite —
+  a synthetic-fixture-only trigger today given the 5 GB slider minimum and
+  realistic video durations, but `encoders.py` never sets an explicit
+  `-level`, so a pathological real input could theoretically hit the same
+  failure where `libx264` would not). Not fixed as part of Linux support;
+  worth a deliberate look separately.

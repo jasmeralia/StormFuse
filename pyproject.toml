@@ -64,7 +64,7 @@ strict = false
 testpaths = ["tests"]
 addopts = "--strict-markers"
 markers = [
-    "windows_only: tests that require Windows",
+    "functional: tests that require a real ffmpeg/ffprobe and subprocess execution",
     "requires_nvenc: tests that require a working NVENC GPU",
 ]
 

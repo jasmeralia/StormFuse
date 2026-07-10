@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Windows-only functional coverage for real ffmpeg jobs (§11.3)."""
+"""Functional coverage for real ffmpeg jobs (§11.3)."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def _run_job(job: CombineJob | CompressJob) -> tuple[JobResult | None, JobError 
     return (done[0] if done else None, failed[0] if failed else None)
 
 
-@pytest.mark.windows_only
+@pytest.mark.functional
 def test_combine_stream_copy_end_to_end(
     bundled_ffmpeg: Path,
     bundled_ffprobe: Path,
@@ -63,7 +63,7 @@ def test_combine_stream_copy_end_to_end(
     assert decision.ctx["strategy"] == "STREAM_COPY"
 
 
-@pytest.mark.windows_only
+@pytest.mark.functional
 def test_combine_normalize_end_to_end(
     bundled_ffmpeg: Path,
     bundled_ffprobe: Path,
@@ -106,7 +106,7 @@ def test_combine_normalize_end_to_end(
     assert decision.ctx["normalize_count"] == 2
 
 
-@pytest.mark.windows_only
+@pytest.mark.functional
 def test_compress_libx264_single_pass_end_to_end(
     bundled_ffmpeg: Path,
     bundled_ffprobe: Path,
@@ -138,7 +138,7 @@ def test_compress_libx264_single_pass_end_to_end(
     assert output_probe.audio.codec == "aac"
 
 
-@pytest.mark.windows_only
+@pytest.mark.functional
 def test_compress_libx264_two_pass_end_to_end(
     bundled_ffmpeg: Path,
     bundled_ffprobe: Path,
@@ -169,7 +169,7 @@ def test_compress_libx264_two_pass_end_to_end(
     assert output_probe.audio.codec == "aac"
 
 
-@pytest.mark.windows_only
+@pytest.mark.functional
 def test_cancelled_job_removes_partial_output(
     bundled_ffmpeg: Path,
     bundled_ffprobe: Path,
@@ -183,7 +183,7 @@ def test_cancelled_job_removes_partial_output(
         ffprobe_exe=bundled_ffprobe,
         input_path=generated_media["cancel_input"],
         output_path=output,
-        target_gb=1.0,
+        target_gb=0.1,
         encoder=EncoderChoice.LIBX264,
         two_pass=False,
     )
@@ -210,7 +210,7 @@ def test_cancelled_job_removes_partial_output(
     assert any(getattr(record, "event", None) == "ffmpeg.cancel" for record in caplog.records)
 
 
-@pytest.mark.windows_only
+@pytest.mark.functional
 @pytest.mark.requires_nvenc
 def test_compress_nvenc_single_pass_end_to_end(
     bundled_ffmpeg: Path,
@@ -224,7 +224,16 @@ def test_compress_nvenc_single_pass_end_to_end(
         ffprobe_exe=bundled_ffprobe,
         input_path=generated_media["compress_input"],
         output_path=output,
-        target_gb=1.0,
+        # A 1.0 GB target on this ~12s synthetic clip computes a ~700 Mbps
+        # bitrate. Unlike libx264, h264_nvenc's hardware encoder validates the
+        # auto-negotiated H.264 level against the requested bitrate and
+        # rejects it outright ("Invalid Level") rather than just encoding.
+        # Real usage never hits this: the compress tab's slider minimum is
+        # 5 GB and real inputs run minutes to hours, so this only bites tiny
+        # synthetic fixtures. Use a bitrate within a realistic 720p range
+        # instead so this test exercises the NVENC path rather than a
+        # fixture artifact.
+        target_gb=0.02,
         encoder=EncoderChoice.NVENC,
         two_pass=False,
     )

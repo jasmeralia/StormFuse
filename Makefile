@@ -75,10 +75,16 @@ test-all:
 	$(PY) -m pytest tests/ -v --cov=stormfuse --cov-report=xml
 
 installer: version-file
+ifeq ($(OS),Windows_NT)
 	@echo "Building installer (Windows only)..."
+else
+	@echo "Building PyInstaller onedir executable..."
+endif
 	$(PY) build/generate_third_party.py
 	$(PY) -m PyInstaller build/stormfuse.spec --noconfirm
+ifeq ($(OS),Windows_NT)
 	makensis build/installer/stormfuse.nsi
+endif
 
 clean:
 	rm -rf dist/ .pytest_cache/ .venv/ .mypy_cache/ .ruff_cache/ coverage.xml junit.xml

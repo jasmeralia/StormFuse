@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Linux native build (§3, §7.1, §11.3, §12)
+- Added experimental native Linux run/build support: Linux resolves
+  `ffmpeg` / `ffprobe` from system `PATH` instead of bundled Windows binaries,
+  `make installer` produces a PyInstaller onedir executable, system-theme
+  changes re-apply live in `system` mode, functional tests now use the
+  `functional` marker with WSL opt-in gating, and `LINUX_BUILD.md` documents
+  the Kubuntu build path.
+
+## [1.0.33] - 2026-07-08
+
 ### Changed
 
 #### Compress tab (§6.3)

@@ -26,13 +26,20 @@ except ImportError as exc:
     encoding="utf-8",
 )
 
+if sys.platform == "win32":
+    ffmpeg_binaries = [
+        (str(REPO_ROOT / "resources" / "ffmpeg" / "ffmpeg.exe"), "resources/ffmpeg"),
+        (str(REPO_ROOT / "resources" / "ffmpeg" / "ffprobe.exe"), "resources/ffmpeg"),
+    ]
+    app_icon = REPO_ROOT / "resources" / "icons" / "stormfuse.ico"
+else:
+    ffmpeg_binaries = []
+    app_icon = REPO_ROOT / "resources" / "icons" / "stormfuse.png"
+
 a = Analysis(
     [str(REPO_ROOT / "src" / "stormfuse" / "__main__.py")],
     pathex=[str(REPO_ROOT / "src")],
-    binaries=[
-        (str(REPO_ROOT / "resources" / "ffmpeg" / "ffmpeg.exe"), "resources/ffmpeg"),
-        (str(REPO_ROOT / "resources" / "ffmpeg" / "ffprobe.exe"), "resources/ffmpeg"),
-    ],
+    binaries=ffmpeg_binaries,
     datas=[
         (str(REPO_ROOT / "resources" / "licenses"), "resources/licenses"),
         (str(REPO_ROOT / "resources" / "icons"), "resources/icons"),
@@ -57,7 +64,7 @@ exe = EXE(  # type: ignore[name-defined]
     strip=False,
     upx=True,
     console=False,
-    icon=str(REPO_ROOT / "resources" / "icons" / "stormfuse.ico"),
+    icon=str(app_icon),
 )
 
 coll = COLLECT(  # type: ignore[name-defined]

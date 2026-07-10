@@ -33,7 +33,7 @@ from stormfuse.ui.error_dialogs import (
 )
 from stormfuse.ui.main_window import MainWindow
 from stormfuse.ui.settings import debug_ffmpeg_logging_enabled, theme_mode
-from stormfuse.ui.theme import apply_application_theme
+from stormfuse.ui.theme import apply_application_theme, current_theme_mode
 
 log = logging.getLogger("stormfuse.app")
 
@@ -47,6 +47,36 @@ class ExceptionHookingApplication(QApplication):
         except Exception as exc:
             sys.excepthook(type(exc), exc, exc.__traceback__)
             return False
+
+
+def _missing_ffmpeg_next_step() -> str:
+    if sys.platform == "linux":
+        return (
+            "Install ffmpeg (e.g. `sudo apt install ffmpeg`) and restart StormFuse. "
+            "If you are running from source, `make fetch-ffmpeg` only fetches the "
+            "Windows build and won't help here."
+        )
+    return (
+        "If you are running from source, run 'make fetch-ffmpeg'. "
+        "If this is an installed copy, reinstall StormFuse or open Troubleshooting."
+    )
+
+
+def _install_system_theme_listener(app: QApplication) -> None:
+    try:
+        style_hints = app.styleHints()
+        if style_hints is None:
+            return
+        color_scheme_changed = style_hints.colorSchemeChanged
+    except AttributeError:
+        return
+
+    def _reapply_system_theme() -> None:
+        mode = current_theme_mode(app)
+        if mode == "system":
+            apply_application_theme(app, mode)
+
+    color_scheme_changed.connect(_reapply_system_theme)
 
 
 def run_app() -> int:
@@ -82,6 +112,7 @@ def run_app() -> int:
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationName(ORG_NAME)
     apply_application_theme(app, theme_mode())
+    _install_system_theme_listener(app)
     configure_debug_logging(debug_ffmpeg_logging_enabled())
     install_qt_message_handler()
     install_signal_hooks()
@@ -125,10 +156,7 @@ def run_app() -> int:
             guidance=DiagnosticGuidance(
                 summary="StormFuse could not start because the bundled ffmpeg files are missing.",
                 why=str(exc),
-                next_step=(
-                    "If you are running from source, run 'make fetch-ffmpeg'. "
-                    "If this is an installed copy, reinstall StormFuse or open Troubleshooting."
-                ),
+                next_step=_missing_ffmpeg_next_step(),
             ),
             action=DiagnosticAction(
                 label="Open Troubleshooting",

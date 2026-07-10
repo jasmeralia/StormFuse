@@ -55,3 +55,65 @@ def test_windows_ffmpeg_path_uses_bundled_exe_without_path_fallback(
 
     assert locator.ffmpeg_path() == bundled_ffmpeg
     assert which_calls == []
+
+
+def test_bundle_ffmpeg_dir_returns_none_without_meipass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delattr(locator.sys, "_MEIPASS", raising=False)
+
+    assert locator._bundle_ffmpeg_dir() is None
+
+
+def test_bundle_ffmpeg_dir_resolves_under_meipass(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(locator.sys, "_MEIPASS", str(tmp_path), raising=False)
+
+    assert locator._bundle_ffmpeg_dir() == tmp_path / "resources" / "ffmpeg"
+
+
+def test_source_ffmpeg_dir_finds_repo_root_resources(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake_module_path = tmp_path / "src" / "stormfuse" / "ffmpeg" / "locator.py"
+    fake_module_path.parent.mkdir(parents=True)
+    fake_module_path.write_text("", encoding="utf-8")
+    (tmp_path / "resources" / "ffmpeg").mkdir(parents=True)
+
+    monkeypatch.setattr(locator, "__file__", str(fake_module_path))
+
+    assert locator._source_ffmpeg_dir() == tmp_path / "resources" / "ffmpeg"
+
+
+def test_source_ffmpeg_dir_returns_none_when_absent(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake_module_path = tmp_path / "src" / "stormfuse" / "ffmpeg" / "locator.py"
+    fake_module_path.parent.mkdir(parents=True)
+    fake_module_path.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(locator, "__file__", str(fake_module_path))
+
+    assert locator._source_ffmpeg_dir() is None
+
+
+def test_candidate_dirs_includes_bundle_then_source_when_both_present(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    source_dir = tmp_path / "source"
+
+    monkeypatch.setattr(locator, "_bundle_ffmpeg_dir", lambda: bundle_dir)
+    monkeypatch.setattr(locator, "_source_ffmpeg_dir", lambda: source_dir)
+
+    assert locator._candidate_dirs() == [bundle_dir, source_dir]
+
+
+def test_candidate_dirs_omits_missing_bundle_and_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(locator, "_bundle_ffmpeg_dir", lambda: None)
+    monkeypatch.setattr(locator, "_source_ffmpeg_dir", lambda: None)
+
+    assert locator._candidate_dirs() == []

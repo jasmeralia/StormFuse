@@ -111,6 +111,16 @@ def test_system_theme_listener_reapplies_only_for_system_mode(monkeypatch) -> No
     assert calls == [(fake_app, "system")]
 
 
+def test_system_theme_listener_noop_when_style_hints_unavailable(monkeypatch) -> None:
+    class _FakeThemeApplication:
+        def styleHints(self) -> None:
+            return None
+
+    monkeypatch.setattr(app_module, "apply_application_theme", lambda *_args: None)
+
+    assert app_module._install_system_theme_listener(_FakeThemeApplication()) is None
+
+
 def test_run_app_enables_startup_update_checks(monkeypatch) -> None:
     captured: dict[str, object] = {}
 

@@ -26,7 +26,9 @@ def _log_root() -> Path:
     local_app_data = os.environ.get("LOCALAPPDATA", "")
     if local_app_data:
         return Path(local_app_data) / APP_NAME / "logs"
-    # Dev fallback for non-Windows
+    xdg_data_home = os.environ.get("XDG_DATA_HOME", "")
+    if xdg_data_home:
+        return Path(xdg_data_home) / APP_NAME / "logs"
     return Path.home() / ".local" / "share" / APP_NAME / "logs"
 
 

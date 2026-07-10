@@ -36,6 +36,7 @@ def test_run_app_offers_troubleshooting_when_ffmpeg_is_missing(monkeypatch) -> N
         captured.update(kwargs)
 
     monkeypatch.setattr(app_module, "setup_logging", lambda: None)
+    monkeypatch.setattr(app_module.sys, "platform", "win32")
     monkeypatch.setattr(app_module, "ExceptionHookingApplication", _FakeApplication)
     monkeypatch.setattr(app_module, "install_sys_hook", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(app_module, "install_thread_hook", lambda *_args, **_kwargs: None)
@@ -65,6 +66,49 @@ def test_run_app_offers_troubleshooting_when_ffmpeg_is_missing(monkeypatch) -> N
     assert action.label == "Open Troubleshooting"
     assert action.url == TROUBLESHOOTING_URL
     assert "make fetch-ffmpeg" in str(captured["message"])
+
+
+def test_missing_ffmpeg_next_step_is_linux_specific(monkeypatch) -> None:
+    monkeypatch.setattr(app_module.sys, "platform", "linux")
+
+    next_step = app_module._missing_ffmpeg_next_step()
+
+    assert "sudo apt install ffmpeg" in next_step
+    assert "make fetch-ffmpeg" in next_step
+    assert "won't help here" in next_step
+
+
+def test_system_theme_listener_reapplies_only_for_system_mode(monkeypatch) -> None:
+    calls: list[tuple[object, str]] = []
+    slots: list[object] = []
+
+    class _FakeSignal:
+        def connect(self, slot) -> None:
+            slots.append(slot)
+
+    class _FakeStyleHints:
+        colorSchemeChanged = _FakeSignal()
+
+    class _FakeThemeApplication:
+        def styleHints(self) -> _FakeStyleHints:
+            return _FakeStyleHints()
+
+    fake_app = _FakeThemeApplication()
+    modes = iter(["light", "system"])
+
+    monkeypatch.setattr(app_module, "current_theme_mode", lambda _app: next(modes))
+    monkeypatch.setattr(
+        app_module,
+        "apply_application_theme",
+        lambda app, mode: calls.append((app, mode)),
+    )
+
+    app_module._install_system_theme_listener(fake_app)
+
+    assert len(slots) == 1
+    slots[0]()
+    slots[0]()
+    assert calls == [(fake_app, "system")]
 
 
 def test_run_app_enables_startup_update_checks(monkeypatch) -> None:

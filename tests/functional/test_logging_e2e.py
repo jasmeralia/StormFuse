@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Windows-only logging functional tests (§9.4, §11.3)."""
+"""Functional logging tests (§9.4, §11.3)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import pytest
 from stormfuse import logging_setup
 
 
-@pytest.mark.windows_only
+@pytest.mark.functional
 def test_clear_log_files_truncates_active_logs_and_deletes_stale_files(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -43,8 +43,12 @@ def test_clear_log_files_truncates_active_logs_and_deletes_stale_files(
         counts = logging_setup.clear_log_files()
 
         assert counts == {"deleted": 1, "truncated": 2, "failed": 0}
-        assert session_path.read_text(encoding="utf-8") == ""
-        assert latest_path.read_text(encoding="utf-8") == ""
+        session_content = session_path.read_text(encoding="utf-8")
+        latest_content = latest_path.read_text(encoding="utf-8")
+        assert "hello from functional test" not in session_content
+        assert "hello from functional test" not in latest_content
+        assert "logs.clear" in session_content
+        assert "logs.clear" in latest_content
         assert not stale_path.exists()
     finally:
         for handler in list(root.handlers):

@@ -40,7 +40,7 @@ def test_ci_workflow_contract() -> None:
 
     # Action pins
     assert "actions/checkout@v7" in workflow
-    assert "actions/setup-python@v6" in workflow
+    assert "actions/setup-python@v7" in workflow
     assert "actions/upload-artifact@v7" in workflow
     assert "codecov/codecov-action@v7" in workflow
     assert "softprops/action-gh-release@v3" in workflow

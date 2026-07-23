@@ -32,6 +32,7 @@ src = ["src", "tests"]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "PL"]
 ignore = [
     "PLR0913",  # too-many-arguments — common in PyQt widget constructors
+    "PLR0917",  # too-many-positional-arguments — same rationale as PLR0913
     "PLR2004",  # magic-value-comparison — acceptable in tests
 ]
 

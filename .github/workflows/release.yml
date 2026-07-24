@@ -502,9 +502,19 @@ jobs:
           name: StormFuse-snap-${{ matrix.arch }}
           path: dist/StormFuse-*.snap
 
+  # Windows is the primary, always-published release target. It must not be
+  # blocked by the newer, CI-only-testable Linux packaging jobs — a failure
+  # in any single Linux format/arch leg must not withhold the Windows
+  # installer. `always()` overrides the default "skip if any need failed"
+  # behavior; the explicit build-installer result check is the real gate.
+  # Whatever Linux assets did upload (per-job, per-arch) are picked up by the
+  # artifact-pattern download below regardless of any other job's outcome.
   release:
     name: Create Release
-    if: needs.resolve.outputs.is_release == 'true'
+    if: |
+      always() &&
+      needs.resolve.outputs.is_release == 'true' &&
+      needs.build-installer.result == 'success'
     needs:
       - resolve
       - create-tag
@@ -536,6 +546,7 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           generate_release_notes: true
+          fail_on_unmatched_files: false
           files: |
             release-assets/**/*.exe
             release-assets/**/*.deb
@@ -543,3 +554,38 @@ jobs:
             release-assets/**/*.AppImage
             release-assets/**/*.flatpak
             release-assets/**/*.snap
+
+  # Publishing must never silently ship Windows-only and look fully green.
+  # This job doesn't gate the release above (it only runs after); it exists
+  # purely to fail the overall workflow run loudly when any packaging leg
+  # didn't succeed, so a partial release gets noticed and fixed promptly.
+  verify-release-complete:
+    name: Verify All Release Assets Published
+    if: always() && needs.resolve.outputs.is_release == 'true'
+    needs:
+      - resolve
+      - build-installer
+      - build-linux-deb-rpm
+      - build-appimage
+      - build-flatpak
+      - build-snap
+      - release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check every packaging job succeeded
+        run: |
+          echo "build-installer:       ${{ needs.build-installer.result }}"
+          echo "build-linux-deb-rpm:   ${{ needs.build-linux-deb-rpm.result }}"
+          echo "build-appimage:        ${{ needs.build-appimage.result }}"
+          echo "build-flatpak:         ${{ needs.build-flatpak.result }}"
+          echo "build-snap:            ${{ needs.build-snap.result }}"
+          echo "release:               ${{ needs.release.result }}"
+          if [ "${{ needs.build-installer.result }}" != "success" ] || \
+             [ "${{ needs.build-linux-deb-rpm.result }}" != "success" ] || \
+             [ "${{ needs.build-appimage.result }}" != "success" ] || \
+             [ "${{ needs.build-flatpak.result }}" != "success" ] || \
+             [ "${{ needs.build-snap.result }}" != "success" ] || \
+             [ "${{ needs.release.result }}" != "success" ]; then
+            echo "::error::One or more packaging jobs did not succeed. The GitHub release was still published if build-installer succeeded, but it may be missing some Linux package(s) — check the job results above and re-run or fix the failing leg."
+            exit 1
+          fi

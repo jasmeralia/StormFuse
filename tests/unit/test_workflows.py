@@ -119,6 +119,21 @@ def test_release_pipeline_builds_all_linux_packages_natively() -> None:
         assert f"release-assets/**/*.{suffix}" in workflow
 
 
+def test_windows_release_is_not_blocked_by_linux_packaging_failures() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    # The release job must gate on build-installer succeeding, not on every
+    # Linux packaging job succeeding — a broken/flaky Linux leg must not
+    # withhold the Windows installer from being published.
+    assert "needs.build-installer.result == 'success'" in workflow
+    assert "fail_on_unmatched_files: false" in workflow
+
+    # A separate, always-run job still fails the overall workflow loudly if
+    # any packaging job didn't succeed, so a partial release gets noticed.
+    assert "verify-release-complete:" in workflow
+    assert "One or more packaging jobs did not succeed" in workflow
+
+
 def test_makefile_supports_windows_virtualenv_paths() -> None:
     makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
 

@@ -912,9 +912,19 @@ plus any type stubs.
      `is_release`): build a sideloadable bundle from the KDE runtime manifest.
   8. `build-snap` on native amd64/arm64 Ubuntu runners (gated on `is_release`):
      build the onedir output and a strict `core24` snap with staged ffmpeg.
-  9. `release` on `ubuntu-latest` (gated on `is_release`): download the
-     Windows and Linux artifacts and publish one GitHub release with notes
-     generated natively by `softprops/action-gh-release`.
+  9. `release` on `ubuntu-latest` (gated on `is_release` **and**
+     `build-installer` succeeding — deliberately *not* gated on every Linux
+     packaging job succeeding, so a broken/flaky Linux leg never withholds
+     the Windows installer): download whatever release artifacts were
+     produced and publish one GitHub release with notes generated natively
+     by `softprops/action-gh-release` (`fail_on_unmatched_files: false`, so
+     missing formats are skipped rather than failing the step).
+  10. `verify-release-complete` on `ubuntu-latest` (always runs when
+      `is_release` is true, after all packaging jobs and `release`): does not
+      gate publishing — it exists purely to fail the overall workflow run
+      loudly whenever any packaging job didn't succeed, so a partial release
+      (e.g. Windows-only because a Linux format failed) gets noticed and
+      fixed rather than silently looking green.
 
 ---
 

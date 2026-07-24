@@ -228,16 +228,20 @@ For a normal feature/fix PR:
    release tag and its date, then add a fresh empty `## [Unreleased]` above it.
    Then write your entries under the new `[Unreleased]`. The release workflow
    itself never modifies `CHANGELOG.md` — it's branch-protected against direct
-   pushes, and the contributor is the right authority on what shipped.
+   pushes, and the contributor is the right authority on what shipped. This is
+   purely for keeping `CHANGELOG.md` an accurate historical record — GitHub
+   release notes are generated independently from PR history (see below), so
+   this step doesn't gate release-notes accuracy the way it used to.
 4. Open a PR; CI must be green before merging.
 
 Once merged to master, the workflow:
 - Reads the latest `vX.Y.Z` tag, bumps the patch, and creates the new tag via
   the GitHub API pointing at the merge commit.
 - Builds the Windows installer with the tag's version baked in.
-- Publishes a GitHub release. Release notes come from the `[Unreleased]`
-  section of `CHANGELOG.md` at the tagged commit (or the matching `[X.Y.Z]`
-  section if step 3 was performed in the same PR that triggered the release).
+- Publishes a GitHub release. Release notes are generated natively by
+  `softprops/action-gh-release`'s `generate_release_notes` option (merged PR
+  titles/authors/links since the previous release, plus a compare link) —
+  `CHANGELOG.md` is not read for this.
 
 **Manual override:** to rebuild or re-release a specific ref, use the Actions
 "Run workflow" button on `release.yml`. Pick a branch or tag, and toggle

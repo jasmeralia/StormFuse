@@ -859,10 +859,15 @@ plus any type stubs.
 - Permissions: `actions: read`, `contents: write`. The `pull-requests: write`
   permission is no longer required — there is no bump PR.
 - CHANGELOG.md is **not modified by CI** (master is branch-protected against
-  direct pushes). The release-notes generator reads the `[Unreleased]` section
-  at the tagged commit; contributors promote `[Unreleased]` → `[vX.Y.Z]` in
-  the PR that introduces the next round of entries (see AGENTS.md release
-  checklist).
+  direct pushes) and is **not the release-notes source**. GitHub release
+  notes are generated natively by `softprops/action-gh-release`'s
+  `generate_release_notes` option (merged PR titles/authors/links since the
+  previous release, plus a `Full Changelog` compare link), which works for
+  every release — including dependency-bump/chore releases that never touch
+  CHANGELOG.md — since every merge to master is a squash-merged PR.
+  CHANGELOG.md itself is still maintained as a curated historical record per
+  the AGENTS.md release checklist; it's just not read by the release
+  automation.
 - Jobs:
   1. `resolve` on `ubuntu-latest`: runs `scripts/release_info.py` and emits
      `is_release`, `create_tag`, and `tag_name` outputs from event + ref.
@@ -882,7 +887,8 @@ plus any type stubs.
      on `PATH` → `make installer` → upload the installer artifact.
   5. `release` on `ubuntu-latest` (gated on `is_release`): download the
      installer artifact and publish the GitHub release with notes generated
-     by `scripts/release_notes.py` via `softprops/action-gh-release`.
+     natively by `softprops/action-gh-release`'s `generate_release_notes`
+     option.
 
 ---
 

@@ -1,0 +1,26 @@
+name: stormfuse
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+version_schema: semver
+section: video
+priority: optional
+maintainer: Morgan Blackthorne <morgan@windsofstorm.net>
+description: |
+  Combine multiple MKV/MP4 files or compress one video under a size ceiling.
+vendor: Winds of Storm
+homepage: https://github.com/jasmeralia/StormFuse
+license: GPL-3.0-or-later
+depends:
+  - ffmpeg
+contents:
+  - src: dist/StormFuse/
+    dst: /usr/lib/stormfuse
+    type: tree
+  - src: /usr/lib/stormfuse/StormFuse
+    dst: /usr/bin/stormfuse
+    type: symlink
+  - src: resources/linux/stormfuse.desktop
+    dst: /usr/share/applications/stormfuse.desktop
+  - src: resources/icons/stormfuse.png
+    dst: /usr/share/icons/hicolor/256x256/apps/stormfuse.png

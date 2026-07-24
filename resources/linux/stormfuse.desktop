@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=StormFuse
+Comment=Combine and compress video files
+Exec=stormfuse
+Icon=stormfuse
+Type=Application
+Categories=AudioVideo;Video;
+Terminal=false

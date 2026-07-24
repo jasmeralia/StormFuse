@@ -33,7 +33,15 @@ if sys.platform == "win32":
     ]
     app_icon = REPO_ROOT / "resources" / "icons" / "stormfuse.ico"
 else:
-    ffmpeg_binaries = []
+    linux_ffmpeg_paths = [
+        REPO_ROOT / "resources" / "ffmpeg" / "ffmpeg",
+        REPO_ROOT / "resources" / "ffmpeg" / "ffprobe",
+    ]
+    ffmpeg_binaries = (
+        [(str(path), "resources/ffmpeg") for path in linux_ffmpeg_paths]
+        if all(path.is_file() for path in linux_ffmpeg_paths)
+        else []
+    )
     app_icon = REPO_ROOT / "resources" / "icons" / "stormfuse.png"
 
 a = Analysis(

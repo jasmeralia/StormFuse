@@ -1,0 +1,45 @@
+name: stormfuse
+base: core24
+version: '0.0.0'  # Replaced with the tag-derived version by release.yml.
+summary: Combine and compress video files
+description: |
+  StormFuse combines multiple MKV/MP4 files or compresses one video under a
+  target size ceiling. It prefers NVENC and falls back to libx264.
+grade: stable
+confinement: strict
+
+apps:
+  stormfuse:
+    command: usr/lib/stormfuse/StormFuse
+    desktop: usr/share/applications/stormfuse.desktop
+    environment:
+      PATH: $SNAP/usr/bin:$SNAP/bin:$PATH
+    plugs:
+      - desktop
+      - desktop-legacy
+      - home
+      - network
+      - opengl
+      - removable-media
+      - wayland
+      - x11
+
+parts:
+  stormfuse:
+    plugin: nil
+    source: stage/StormFuse
+    stage-packages:
+      - ffmpeg
+    override-build: |
+      install -d "$CRAFT_PART_INSTALL/usr/lib/stormfuse"
+      cp -a "$CRAFT_PART_SRC"/. "$CRAFT_PART_INSTALL/usr/lib/stormfuse/"
+  desktop-integration:
+    plugin: nil
+    source: stage/resources
+    override-build: |
+      install -Dm644 "$CRAFT_PART_SRC/linux/stormfuse.desktop" \
+        "$CRAFT_PART_INSTALL/usr/share/applications/stormfuse.desktop"
+      sed -i 's|^Icon=stormfuse$|Icon=${SNAP}/usr/share/icons/hicolor/256x256/apps/stormfuse.png|' \
+        "$CRAFT_PART_INSTALL/usr/share/applications/stormfuse.desktop"
+      install -Dm644 "$CRAFT_PART_SRC/icons/stormfuse.png" \
+        "$CRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps/stormfuse.png"

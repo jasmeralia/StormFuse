@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/jasmeralia/StormFuse?include_prereleases&sort=semver&label=Release)](https://github.com/jasmeralia/StormFuse/releases/latest)
 [![Coverage](https://codecov.io/gh/jasmeralia/StormFuse/branch/master/graph/badge.svg)](https://app.codecov.io/gh/jasmeralia/StormFuse/branch/master)
 
-StormFuse is a desktop app, primarily packaged for Windows, that wraps `ffmpeg` and `ffprobe` to do two jobs cleanly: combine multiple MKV/MP4 files into one output, and compress a single MKV/MP4 under a target size ceiling. It prefers NVIDIA NVENC when a working GPU path is available, falls back silently to `libx264` when it is not, and keeps detailed structured logs so failures are diagnosable. Native Linux builds are experimental; see [LINUX_BUILD.md](LINUX_BUILD.md).
+StormFuse is a desktop app, with Windows as its primary target and Linux packages available for amd64 and arm64. It wraps `ffmpeg` and `ffprobe` to do two jobs cleanly: combine multiple MKV/MP4 files into one output, and compress a single MKV/MP4 under a target size ceiling. It prefers NVIDIA NVENC when a working GPU path is available, falls back silently to `libx264` when it is not, and keeps detailed structured logs so failures are diagnosable.
 
 ## Workflows
 
@@ -15,18 +15,23 @@ StormFuse is a desktop app, primarily packaged for Windows, that wraps `ffmpeg` 
 
 ## Install
 
-1. Download the latest `StormFuse-Setup-<version>.exe` from [GitHub Releases](https://github.com/jasmeralia/stormfuse/releases).
-2. Run the installer.
-3. Choose the per-user install option if you do not want an elevation prompt. Per-user install does not require admin rights.
-4. Launch StormFuse from the Start Menu or desktop shortcut.
+Download the latest package for your platform from
+[GitHub Releases](https://github.com/jasmeralia/stormfuse/releases).
 
-StormFuse ships its own pinned `ffmpeg.exe` and `ffprobe.exe`. It does not use `ffmpeg` from `PATH`.
+- Windows: run `StormFuse-Setup-<version>.exe`. Choose the per-user option to
+  install without admin rights.
+- Linux: choose the amd64 or arm64 DEB, RPM, AppImage, Flatpak, or Snap asset.
+  See [LINUX_BUILD.md](LINUX_BUILD.md) for install commands and each format's
+  FFmpeg behavior.
+
+Windows and AppImage ship pinned FFmpeg binaries. Other Linux formats obtain
+FFmpeg from a declared package dependency or runtime mechanism.
 
 ## First Run
 
 On startup, StormFuse does two checks before the main window is ready:
 
-1. It locates the bundled `ffmpeg` and `ffprobe` binaries.
+1. It locates the package-provided `ffmpeg` and `ffprobe` binaries.
 2. It probes NVENC in two stages: `ffmpeg -encoders` must list `h264_nvenc`, then a small 1-frame `256x256` encode must succeed.
 
 The status bar shows the result plainly:
@@ -88,7 +93,7 @@ When a job fails, read the last few lines of `latest.log` and look for:
 - `probe.error` if StormFuse could not inspect an input file
 - `ffmpeg.exit` if ffmpeg exited non-zero
 - `job.fail` for workflow-level failures such as an impossible target size
-- `app.ffmpeg_missing` if the bundled binaries were not found
+- `app.ffmpeg_missing` if the package-provided binaries were not found
 
 ### Copying a diagnostic
 
@@ -112,12 +117,16 @@ That is the fastest way to hand someone enough context to debug a failure.
 
 If NVENC keeps falling back unexpectedly, check `latest.log` for `nvenc.probe` and the recorded reason.
 
-### Missing bundled ffmpeg
+### Missing FFmpeg
 
-If StormFuse says the bundled binaries are missing:
+If StormFuse says the media tools are missing:
 
-- Installed copy: reinstall StormFuse.
-- Source checkout: run `make fetch-ffmpeg`.
+- Windows or AppImage: reinstall StormFuse so the bundled files are restored.
+- DEB/RPM: install the package's `ffmpeg` dependency (RPM users need RPM Fusion
+  or an equivalent repository).
+- Flatpak/Snap: reinstall the package and its required runtime components.
+- Source checkout: install system `ffmpeg` on Linux or run `make fetch-ffmpeg`
+  on Windows.
 
 ## Building From Source
 
@@ -127,7 +136,9 @@ StormFuse development goes through the `Makefile`.
 |---------|---------|
 | `make venv` | Create `.venv/` with Python 3.14 |
 | `make deps` | Install runtime and development dependencies and editable package metadata |
-| `make fetch-ffmpeg` | Download and verify the pinned gyan.dev ffmpeg build into `resources/ffmpeg/` |
+| `make fetch-ffmpeg` | Download and verify the pinned Windows gyan.dev build |
+| `make fetch-ffmpeg-linux-amd64` | Fetch verified amd64 static binaries for AppImage CI only |
+| `make fetch-ffmpeg-linux-arm64` | Fetch verified arm64 static binaries for AppImage CI only |
 | `make run` | Launch StormFuse from source |
 | `make lintfix` | Run `ruff format` and `ruff check --fix` |
 | `make lint` | Run `ruff`, `mypy`, and `pylint` |
@@ -157,7 +168,9 @@ Before landing a change:
 3. Run `make test`.
 4. Run `make test-functional` as well if you changed platform-specific or subprocess behavior.
 
-Unit tests are designed to run on Linux or WSL. The full app and functional suite run on Windows and native Linux; WSL functional tests are skipped by default. Windows remains the only packaged release target.
+Unit tests are designed to run on Linux or WSL. The full app and functional
+suite run on Windows and native Linux; WSL functional tests are skipped by
+default. Linux packages are built natively for amd64 and arm64.
 
 ### Adding a new encoder
 
@@ -180,6 +193,8 @@ Third-party license matrix:
 | StormFuse | GPL-3.0 | Source + binary |
 | PyQt6 | GPL-3.0 (Riverbank) | Imported module, compatible with GPL v3 app |
 | FFmpeg (gyan.dev essentials build) | GPL-2.0 due to `libx264`/`libx265` | Shipped as separate `.exe` files and invoked via subprocess |
+| FFmpeg (John Van Sickle static builds) | GPL-3.0 | Shipped as separate executables in AppImages |
+| FFmpeg (Linux package/runtime builds) | Distribution-specific GPL build | Dependency/runtime component for DEB, RPM, Flatpak, and Snap |
 | PyInstaller | GPL with bootloader exception | Build tool only, not shipped |
 | NSIS | zlib/libpng | Build tool only, not shipped |
 | pytest / ruff / mypy / pylint | MIT / BSD | Dev-only |
@@ -190,7 +205,7 @@ Installer license artifacts live under `resources/licenses/`.
 
 - Python 3.14+
 - PyQt6 by Riverbank Computing
-- FFmpeg by the FFmpeg project, using the gyan.dev build
-- PyInstaller and NSIS for packaging
+- FFmpeg by the FFmpeg project, using gyan.dev, John Van Sickle, and Linux distribution builds
+- PyInstaller, NSIS, nFPM, appimagetool, flatpak-builder, and Snapcraft for packaging
 - pytest, ruff, mypy, and pylint for development
 - Developed with assistance from Claude (Anthropic) and Codex (OpenAI)

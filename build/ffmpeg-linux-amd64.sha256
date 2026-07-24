@@ -1,0 +1,5 @@
+# SHA-256 hash for the pinned johnvansickle.com FFmpeg 7.0.2 amd64 static archive.
+# Release date: 2024-06-29
+# Source release: https://johnvansickle.com/ffmpeg/
+# Format: <sha256>  <filename>
+abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67  ffmpeg-release-amd64-static.tar.xz

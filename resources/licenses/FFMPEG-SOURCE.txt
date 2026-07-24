@@ -1,7 +1,10 @@
-FFmpeg — Bundled Binary Attribution (GPL v2 §3 compliance)
-===========================================================
+FFmpeg — Bundled Binary Attribution and Source Offer
+=====================================================
 
 Upstream project : FFmpeg (https://ffmpeg.org)
+
+Windows bundle
+--------------
 Build provider   : Gyan Doshi (https://www.gyan.dev/ffmpeg/builds/)
 Build variant    : essentials_build
 Version          : 8.1
@@ -15,17 +18,38 @@ Pinned archive SHA-256
 ffmpeg-8.1-essentials_build.zip :
   8748283d821613d930b0e7be685aaa9df4ca6f0ad4d0c42fd02622b3623463c6
 
-Bundled executables
--------------------
 `make fetch-ffmpeg` verifies the archive hash above before extraction and then
 extracts the bundled `ffmpeg.exe` and `ffprobe.exe` from that pinned archive.
+
+Linux AppImage bundles
+----------------------
+Build provider   : John Van Sickle (https://johnvansickle.com/ffmpeg/)
+Build variant    : amd64 and arm64 static release builds
+Version          : 7.0.2
+Release date     : 2024-06-29
+Archive URLs     : https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+                   https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz
+
+Pinned archive SHA-256
+----------------------
+ffmpeg-release-amd64-static.tar.xz :
+  abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67
+ffmpeg-release-arm64-static.tar.xz :
+  f4149bb2b0784e30e99bdda85471c9b5930d3402014e934a5098b41d0f7201b1
+
+`make fetch-ffmpeg-linux-amd64` and `make fetch-ffmpeg-linux-arm64` verify the
+appropriate archive before extracting `ffmpeg` and `ffprobe`. These targets are
+used only for AppImage builds.
 
 Source code
 -----------
 FFmpeg source is available at https://github.com/FFmpeg/FFmpeg
 The gyan.dev build recipe is at https://github.com/GyanD/codexffmpeg
+John Van Sickle publishes the corresponding release sources from
+https://johnvansickle.com/ffmpeg/release-source/.
 
 License
 -------
-FFmpeg is licensed under the GNU General Public License version 2 or later.
-See GPL-2.0.txt in this directory for the full license text.
+The gyan.dev build is licensed under the GNU General Public License version 2
+or later. John Van Sickle's static builds are licensed under the GNU General
+Public License version 3. See GPL-2.0.txt and GPL-3.0.txt in this directory.

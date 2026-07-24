@@ -61,10 +61,10 @@ Layering rules (enforced by pylint + CI, not just convention):
 
 - Development is usually done on **Linux** (or WSL) — the unit suite is designed
   to pass there.
-- Windows remains the primary release target and the only target with an
-  installer package. Native Linux is a supported secondary run target per
-  `LINUX_BUILD.md`, using system `ffmpeg` / `ffprobe` from `PATH` and a
-  PyInstaller onedir build only.
+- Windows remains the primary release target. Native Linux is a supported
+  secondary target per `LINUX_BUILD.md`, with DEB, RPM, AppImage, Flatpak, and
+  Snap release assets for amd64 and arm64. FFmpeg comes from `PATH`, a runtime
+  extension, or a package-local bundle according to the format.
 - Use `if sys.platform == "win32":` guards rather than `try/except ImportError`
   for platform-specific code paths. Functional tests carry
   `@pytest.mark.functional` and are skipped automatically via `tests/conftest.py`
@@ -79,6 +79,8 @@ Layering rules (enforced by pylint + CI, not just convention):
 | `make venv` | Creates `.venv/` with Python 3.14 |
 | `make deps` | `pip install -r requirements-dev.txt` inside `.venv` |
 | `make fetch-ffmpeg` | Downloads pinned gyan.dev ffmpeg, verifies SHA-256, extracts into `resources/ffmpeg/` |
+| `make fetch-ffmpeg-linux-amd64` | Downloads verified static Linux ffmpeg for amd64 AppImage builds only |
+| `make fetch-ffmpeg-linux-arm64` | Downloads verified static Linux ffmpeg for arm64 AppImage builds only |
 | `make run` | Launches the app from source |
 | `make lint` | ruff + mypy + pylint; must pass with zero warnings |
 | `make lintfix` | `ruff format` + `ruff check --fix` — auto-fixes most ruff violations |
@@ -86,7 +88,7 @@ Layering rules (enforced by pylint + CI, not just convention):
 | `make test` | Unit only (default — runs on Linux) |
 | `make test-functional` | Functional (Windows or native Linux; WSL opt-in) |
 | `make test-all` | Both |
-| `make installer` | Windows: PyInstaller → NSIS installer; Linux: PyInstaller onedir executable |
+| `make installer` | Windows: PyInstaller → NSIS installer; Linux: common PyInstaller onedir staging output |
 | `make clean` | Delete `build/`, `dist/`, `.pytest_cache/`, `__pycache__/`, `.venv/` |
 
 **Linting workflow**: always run `make lintfix` before `make lint`. `lintfix`
@@ -216,7 +218,8 @@ anywhere, you're working around the contract — fix the contract instead.
 
 Releases are automated by the workflow on every push to `master`. The workflow
 computes the next patch version from `git tag --sort=-v:refname`, tags it via
-the GitHub API, builds the Windows installer, and publishes a GitHub release.
+the GitHub API, builds the Windows installer and Linux packages, and publishes
+one GitHub release.
 
 For a normal feature/fix PR:
 1. `make lintfix && make lint` — must pass with 10.00/10 and zero mypy errors.
@@ -237,7 +240,8 @@ For a normal feature/fix PR:
 Once merged to master, the workflow:
 - Reads the latest `vX.Y.Z` tag, bumps the patch, and creates the new tag via
   the GitHub API pointing at the merge commit.
-- Builds the Windows installer with the tag's version baked in.
+- Builds the Windows installer and all Linux package formats with the tag's
+  version baked in.
 - Publishes a GitHub release. Release notes are generated natively by
   `softprops/action-gh-release`'s `generate_release_notes` option (merged PR
   titles/authors/links since the previous release, plus a compare link) —

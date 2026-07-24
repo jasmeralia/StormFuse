@@ -82,7 +82,7 @@ def test_check_for_updates_returns_none_when_already_up_to_date(
         lambda request, timeout: _FakeResponse(json.dumps(payload).encode("utf-8")),
     )
 
-    assert check_for_updates() is None
+    assert check_for_updates(platform="win32") is None
 
 
 def test_check_for_updates_returns_stable_release(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -112,13 +112,15 @@ def test_check_for_updates_returns_stable_release(monkeypatch: pytest.MonkeyPatc
         lambda request, timeout: _FakeResponse(json.dumps(payload).encode("utf-8")),
     )
 
-    info = check_for_updates()
+    info = check_for_updates(platform="win32")
 
     assert info is not None
     assert info.current_version == APP_VERSION
     assert info.latest_version == next_version
     assert info.release_name == f"StormFuse v{next_version}"
     assert info.release_notes == "Bug fixes"
+    assert info.download_url.endswith(f"StormFuse-Setup-{next_version}.exe")
+    assert info.download_size == update_checker._MIN_INSTALLER_BYTES
     assert not info.is_prerelease
 
 
@@ -151,13 +153,78 @@ def test_check_for_updates_gates_prereleases(monkeypatch: pytest.MonkeyPatch) ->
         lambda request, timeout: _FakeResponse(json.dumps(payload).encode("utf-8")),
     )
 
-    assert check_for_updates(include_prerelease=False) is None
+    assert check_for_updates(include_prerelease=False, platform="win32") is None
 
-    info = check_for_updates(include_prerelease=True)
+    info = check_for_updates(include_prerelease=True, platform="win32")
 
     assert info is not None
     assert info.latest_version == prerelease_version
     assert info.is_prerelease
+
+
+def test_check_for_updates_on_linux_does_not_require_installer_asset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    next_version = _next_patch_version()
+    payload = [
+        {
+            "tag_name": f"v{next_version}",
+            "name": f"StormFuse v{next_version}",
+            "body": "Linux packages",
+            "draft": False,
+            "prerelease": False,
+            "html_url": f"https://github.com/jasmeralia/StormFuse/releases/tag/v{next_version}",
+            "assets": [],
+        }
+    ]
+    monkeypatch.setattr(
+        update_checker,
+        "urlopen",
+        lambda request, timeout: _FakeResponse(json.dumps(payload).encode("utf-8")),
+    )
+
+    info = check_for_updates(platform="linux")
+
+    assert info is not None
+    assert info.latest_version == next_version
+    assert info.download_url == ""
+    assert info.download_size == 0
+
+
+@pytest.mark.parametrize(
+    ("tag_name", "prerelease", "include_prerelease"),
+    [
+        ("v0.0.0", False, False),
+        (f"v{_next_patch_version()}-beta.1", True, False),
+    ],
+)
+def test_check_for_updates_on_linux_still_applies_version_gates(
+    monkeypatch: pytest.MonkeyPatch,
+    tag_name: str,
+    prerelease: bool,
+    include_prerelease: bool,
+) -> None:
+    payload = [
+        {
+            "tag_name": tag_name,
+            "draft": False,
+            "prerelease": prerelease,
+            "assets": [],
+        }
+    ]
+    monkeypatch.setattr(
+        update_checker,
+        "urlopen",
+        lambda request, timeout: _FakeResponse(json.dumps(payload).encode("utf-8")),
+    )
+
+    assert (
+        check_for_updates(
+            include_prerelease=include_prerelease,
+            platform="linux",
+        )
+        is None
+    )
 
 
 def test_check_for_updates_returns_none_on_network_failure(monkeypatch: pytest.MonkeyPatch) -> None:

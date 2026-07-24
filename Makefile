@@ -15,7 +15,7 @@ PIP      := $(PY) -m pip
 FFMPEG_SHA256_FILE := build/ffmpeg.sha256
 FFMPEG_DIR         := resources/ffmpeg
 
-.PHONY: venv deps version-file fetch-ffmpeg generate-third-party run lint lintfix format test test-functional test-all installer clean
+.PHONY: venv deps version-file fetch-ffmpeg fetch-ffmpeg-linux-amd64 fetch-ffmpeg-linux-arm64 generate-third-party run lint lintfix format test test-functional test-all installer clean
 
 venv:
 	@command -v $(PYTHON) >/dev/null 2>&1 || \
@@ -42,6 +42,14 @@ $(VERSION_FILE):
 fetch-ffmpeg:
 	@echo "Downloading pinned ffmpeg build..."
 	$(PY) build/fetch_ffmpeg.py
+
+fetch-ffmpeg-linux-amd64:
+	@echo "Downloading pinned Linux amd64 ffmpeg build for AppImage..."
+	$(PY) build/fetch_ffmpeg_linux.py --arch amd64
+
+fetch-ffmpeg-linux-arm64:
+	@echo "Downloading pinned Linux arm64 ffmpeg build for AppImage..."
+	$(PY) build/fetch_ffmpeg_linux.py --arch arm64
 
 generate-third-party:
 	$(PY) build/generate_third_party.py
@@ -93,8 +101,12 @@ clean:
 		find build -mindepth 1 -maxdepth 1 \
 			! -name installer \
 			! -name fetch_ffmpeg.py \
+			! -name fetch_ffmpeg_linux.py \
 			! -name generate_third_party.py \
 			! -name ffmpeg.sha256 \
+			! -name ffmpeg-linux-amd64.sha256 \
+			! -name ffmpeg-linux-arm64.sha256 \
+			! -name linux \
 			! -name stormfuse.spec \
 			-exec rm -rf {} +; \
 	fi
@@ -103,6 +115,7 @@ clean:
 			! -name stormfuse.nsi \
 			-exec rm -rf {} +; \
 	fi
+	rm -rf build/linux/flatpak/stage build/linux/snap/stage
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -name "*.pyc" -delete
 	find . -name "*.pyo" -delete

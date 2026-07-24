@@ -1,0 +1,5 @@
+# SHA-256 hash for the pinned johnvansickle.com FFmpeg 7.0.2 arm64 static archive.
+# Release date: 2024-06-29
+# Source release: https://johnvansickle.com/ffmpeg/
+# Format: <sha256>  <filename>
+f4149bb2b0784e30e99bdda85471c9b5930d3402014e934a5098b41d0f7201b1  ffmpeg-release-arm64-static.tar.xz

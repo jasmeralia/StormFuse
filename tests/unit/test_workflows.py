@@ -80,7 +80,10 @@ def test_release_pipeline_contract_on_windows() -> None:
     assert "shell: bash" in workflow
 
     # Release publishing
-    assert 'gh run download "$GITHUB_RUN_ID" --name StormFuse-installer --dir .' in workflow
+    assert (
+        "gh run download \"$GITHUB_RUN_ID\" --pattern 'StormFuse-*' --dir release-assets"
+        in workflow
+    )
     assert "softprops/action-gh-release@v3" in workflow
 
     # Things we deliberately don't do anymore.
@@ -89,6 +92,31 @@ def test_release_pipeline_contract_on_windows() -> None:
     assert "pyinstaller build/stormfuse.spec" not in workflow
     assert "makensis build/installer/stormfuse.nsi" not in workflow
     assert "gh release create" not in workflow
+
+
+def test_release_pipeline_builds_all_linux_packages_natively() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    for job in (
+        "build-linux-deb-rpm:",
+        "build-appimage:",
+        "build-flatpak:",
+        "build-snap:",
+    ):
+        assert job in workflow
+
+    assert workflow.count("ubuntu-24.04-arm") == 4
+    assert "nfpm package --config build/linux/nfpm.yaml --packager deb" in workflow
+    assert "nfpm package --config build/linux/nfpm.yaml --packager rpm" in workflow
+    assert "make fetch-ffmpeg-linux-${ARCH}" in workflow
+    assert "appimagetool-${APPIMAGE_ARCH}.AppImage" in workflow
+    assert "flatpak/flatpak-github-actions/flatpak-builder@v6" in workflow
+    assert "snapcore/action-build@v1" in workflow
+    assert "build/linux/flatpak/net.windsofstorm.StormFuse.yaml" in workflow
+    assert "build/linux/snap" in workflow
+
+    for suffix in ("deb", "rpm", "AppImage", "flatpak", "snap"):
+        assert f"release-assets/**/*.{suffix}" in workflow
 
 
 def test_makefile_supports_windows_virtualenv_paths() -> None:

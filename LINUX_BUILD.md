@@ -1,17 +1,37 @@
-# StormFuse Linux Build
+# StormFuse on Linux
 
-Linux is a secondary, experimental StormFuse target. Windows remains the
-officially packaged release target; Linux currently produces only a PyInstaller
-onedir executable.
+Linux is a secondary StormFuse target. Every tagged release provides DEB, RPM,
+AppImage, Flatpak, and Snap packages for both amd64 and arm64 as sideloadable
+GitHub release assets. No package is published to an external store or package
+repository.
 
 ## Target
 
 | Concern | Status |
 |---------|--------|
 | Tested desktop | Kubuntu 26.04, KDE Plasma, native Linux |
-| Build output | `dist/StormFuse/StormFuse` |
-| Packaging | No `.deb`, snap, AppImage, Flatpak, or `.desktop` file yet |
-| FFmpeg | System `ffmpeg` / `ffprobe` from `PATH`; not bundled |
+| Architectures | amd64 (`x86_64`) and arm64 (`aarch64`) |
+| Release packages | `.deb`, `.rpm`, `.AppImage`, `.flatpak`, `.snap` |
+| Local staging output | `dist/StormFuse/StormFuse` |
+| Desktop integration | Shared `.desktop` entry and StormFuse icon in every package |
+
+## Choose a Package
+
+Download the file for your architecture from
+[GitHub Releases](https://github.com/jasmeralia/StormFuse/releases).
+
+| Format | Installation | FFmpeg source |
+|--------|--------------|---------------|
+| DEB | `sudo apt install ./StormFuse-<version>-<arch>.deb` | The package depends on the distribution's `ffmpeg` package. |
+| RPM | `sudo dnf install ./StormFuse-<version>-<arch>.rpm` | The package requires `ffmpeg`; see the warning below. |
+| AppImage | `chmod +x StormFuse-*.AppImage` and run it directly | Pinned static `ffmpeg` and `ffprobe` are bundled. |
+| Flatpak | `flatpak install --user ./StormFuse-*.flatpak` | The Freedesktop `ffmpeg-full` runtime extension supplies full codec support. |
+| Snap | `sudo snap install --dangerous ./StormFuse-*.snap` | Ubuntu's `ffmpeg` package is staged inside the snap. |
+
+> **RPM users:** Fedora and RHEL official repositories do not ship the full
+> `ffmpeg` package because of codec licensing. Enable RPM Fusion (or an
+> equivalent third-party multimedia repository) before installing the
+> StormFuse RPM, or `dnf` will be unable to resolve its `ffmpeg` dependency.
 
 ## System Dependencies
 
@@ -51,7 +71,9 @@ make run
 ```
 
 On Linux, `make fetch-ffmpeg` is not needed. That target downloads the pinned
-Windows ffmpeg build used by the Windows installer.
+Windows build. The `fetch-ffmpeg-linux-*` targets are reserved for AppImage CI;
+normal source, DEB/RPM, Flatpak, and Snap builds use their system/runtime
+mechanisms.
 
 ## Build The Onedir Executable
 
@@ -60,14 +82,15 @@ make installer
 ./dist/StormFuse/StormFuse
 ```
 
-On Linux, `make installer` stops after PyInstaller. It does not run NSIS and
-does not create an installer package.
+On Linux, `make installer` stops after PyInstaller. Release CI uses this onedir
+tree as the input to each dedicated packaging tool.
 
 ## Desktop Integration
 
-There is no `.desktop` file or application-menu integration yet. That work is
-planned alongside the Linux packaging decision: snap vs AppImage vs Flatpak vs
-`.deb` / `.rpm`.
+Packaged builds install or export `resources/linux/stormfuse.desktop` and the
+existing StormFuse icon. DEB and RPM packages place the application under
+`/usr/lib/stormfuse` and expose `/usr/bin/stormfuse`; the sandboxed and portable
+formats provide their own equivalent launch entry.
 
 ## Theme Detection
 

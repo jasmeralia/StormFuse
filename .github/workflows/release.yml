@@ -212,10 +212,307 @@ jobs:
           name: StormFuse-installer
           path: dist/StormFuse-Setup-*.exe
 
+  build-linux-deb-rpm:
+    name: Build Linux DEB/RPM (${{ matrix.arch }})
+    if: needs.resolve.outputs.is_release == 'true'
+    needs: [resolve, create-tag]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            nfpm_arch: x86_64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            nfpm_arch: arm64
+    env:
+      TAG_NAME: ${{ needs.resolve.outputs.tag_name }}
+      ARCH: ${{ matrix.arch }}
+      NFPM_VERSION: 2.47.0
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG_NAME }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-dev.txt
+            pyproject.toml
+
+      - name: Write release version file
+        run: python scripts/write_version.py --tag "${TAG_NAME}"
+
+      - name: Install dependencies
+        run: make deps
+
+      - name: Build PyInstaller onedir
+        run: make installer
+
+      - name: Install verified nFPM
+        env:
+          NFPM_ARCH: ${{ matrix.nfpm_arch }}
+        run: |
+          archive="nfpm_${NFPM_VERSION}_Linux_${NFPM_ARCH}.tar.gz"
+          base_url="https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}"
+          mkdir -p "${RUNNER_TEMP}/nfpm"
+          cd "${RUNNER_TEMP}/nfpm"
+          curl --fail --location --silent --show-error --remote-name \
+            "${base_url}/${archive}"
+          curl --fail --location --silent --show-error --remote-name \
+            "${base_url}/checksums.txt"
+          grep "  ${archive}$" checksums.txt | sha256sum --check --strict
+          tar -xzf "${archive}" nfpm
+          echo "${RUNNER_TEMP}/nfpm" >> "$GITHUB_PATH"
+
+      - name: Build DEB and RPM packages
+        run: |
+          VERSION="${TAG_NAME#v}"
+          export VERSION ARCH
+          nfpm package --config build/linux/nfpm.yaml --packager deb \
+            --target "dist/StormFuse-${VERSION}-${ARCH}.deb"
+          nfpm package --config build/linux/nfpm.yaml --packager rpm \
+            --target "dist/StormFuse-${VERSION}-${ARCH}.rpm"
+
+      - name: Upload Linux package artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: StormFuse-deb-rpm-${{ matrix.arch }}
+          path: |
+            dist/StormFuse-*.deb
+            dist/StormFuse-*.rpm
+
+  build-appimage:
+    name: Build AppImage (${{ matrix.arch }})
+    if: needs.resolve.outputs.is_release == 'true'
+    needs: [resolve, create-tag]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            appimage_arch: x86_64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            appimage_arch: aarch64
+    env:
+      TAG_NAME: ${{ needs.resolve.outputs.tag_name }}
+      ARCH: ${{ matrix.arch }}
+      APPIMAGETOOL_VERSION: 1.9.1
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG_NAME }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-dev.txt
+            pyproject.toml
+
+      - name: Write release version file
+        run: python scripts/write_version.py --tag "${TAG_NAME}"
+
+      - name: Install dependencies
+        run: make deps
+
+      - name: Fetch verified static ffmpeg
+        run: make fetch-ffmpeg-linux-${ARCH}
+
+      - name: Build PyInstaller onedir with bundled ffmpeg
+        run: make installer
+
+      - name: Assemble AppDir
+        run: |
+          appdir="${RUNNER_TEMP}/StormFuse.AppDir"
+          install -d "${appdir}/usr/lib/stormfuse" "${appdir}/usr/bin"
+          cp -a dist/StormFuse/. "${appdir}/usr/lib/stormfuse/"
+          ln -s ../lib/stormfuse/StormFuse "${appdir}/usr/bin/stormfuse"
+          install -Dm755 build/linux/appimage/AppRun "${appdir}/AppRun"
+          install -Dm644 resources/linux/stormfuse.desktop \
+            "${appdir}/stormfuse.desktop"
+          install -Dm644 resources/icons/stormfuse.png \
+            "${appdir}/stormfuse.png"
+
+      - name: Build AppImage
+        env:
+          APPIMAGE_ARCH: ${{ matrix.appimage_arch }}
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: |
+          VERSION="${TAG_NAME#v}"
+          tool="${RUNNER_TEMP}/appimagetool-${APPIMAGE_ARCH}.AppImage"
+          curl --fail --location --silent --show-error \
+            --output "${tool}" \
+            "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-${APPIMAGE_ARCH}.AppImage"
+          chmod +x "${tool}"
+          ARCH="${APPIMAGE_ARCH}" VERSION="${VERSION}" "${tool}" \
+            "${RUNNER_TEMP}/StormFuse.AppDir" \
+            "dist/StormFuse-${VERSION}-${ARCH}.AppImage"
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: StormFuse-appimage-${{ matrix.arch }}
+          path: dist/StormFuse-*.AppImage
+
+  build-flatpak:
+    name: Build Flatpak (${{ matrix.package_arch }})
+    if: needs.resolve.outputs.is_release == 'true'
+    needs: [resolve, create-tag]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package_arch: x86_64
+            runner: ubuntu-latest
+          - package_arch: aarch64
+            runner: ubuntu-24.04-arm
+    env:
+      TAG_NAME: ${{ needs.resolve.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG_NAME }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-dev.txt
+            pyproject.toml
+
+      - name: Write release version file
+        run: python scripts/write_version.py --tag "${TAG_NAME}"
+
+      - name: Install dependencies
+        run: make deps
+
+      - name: Build PyInstaller onedir
+        run: make installer
+
+      - name: Stage Flatpak inputs
+        run: |
+          stage=build/linux/flatpak/stage
+          install -d "${stage}"
+          cp -a dist/StormFuse "${stage}/StormFuse"
+          cp resources/linux/stormfuse.desktop "${stage}/stormfuse.desktop"
+          cp resources/icons/stormfuse.png "${stage}/stormfuse.png"
+
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          sudo flatpak remote-add --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Build Flatpak bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: StormFuse-${{ needs.resolve.outputs.tag_name }}-${{ matrix.package_arch }}.flatpak
+          manifest-path: build/linux/flatpak/net.windsofstorm.StormFuse.yaml
+          arch: ${{ matrix.package_arch }}
+          cache-key: flatpak-builder-${{ matrix.package_arch }}-${{ github.sha }}
+          upload-artifact: false
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: StormFuse-flatpak-${{ matrix.package_arch }}
+          path: StormFuse-*.flatpak
+
+  build-snap:
+    name: Build Snap (${{ matrix.arch }})
+    if: needs.resolve.outputs.is_release == 'true'
+    needs: [resolve, create-tag]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    env:
+      TAG_NAME: ${{ needs.resolve.outputs.tag_name }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG_NAME }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-dev.txt
+            pyproject.toml
+
+      - name: Write release version file
+        run: python scripts/write_version.py --tag "${TAG_NAME}"
+
+      - name: Install dependencies
+        run: make deps
+
+      - name: Build PyInstaller onedir
+        run: make installer
+
+      - name: Stage Snap inputs
+        run: |
+          install -d build/linux/snap/stage
+          cp -a dist/StormFuse build/linux/snap/stage/StormFuse
+          cp -a resources build/linux/snap/stage/resources
+
+      - name: Set Snap version
+        run: |
+          VERSION="${TAG_NAME#v}"
+          sed -i "s/version: '0.0.0'/version: '${VERSION}'/" \
+            build/linux/snap/snapcraft.yaml
+
+      - name: Build Snap
+        id: snapcraft
+        uses: snapcore/action-build@v1
+        with:
+          path: build/linux/snap
+
+      - name: Name Snap release asset
+        run: |
+          VERSION="${TAG_NAME#v}"
+          cp "${{ steps.snapcraft.outputs.snap }}" \
+            "dist/StormFuse-${VERSION}-${ARCH}.snap"
+
+      - name: Upload Snap artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: StormFuse-snap-${{ matrix.arch }}
+          path: dist/StormFuse-*.snap
+
   release:
     name: Create Release
     if: needs.resolve.outputs.is_release == 'true'
-    needs: [resolve, create-tag, build-installer]
+    needs:
+      - resolve
+      - create-tag
+      - build-installer
+      - build-linux-deb-rpm
+      - build-appimage
+      - build-flatpak
+      - build-snap
     runs-on: ubuntu-latest
     env:
       TAG_NAME: ${{ needs.resolve.outputs.tag_name }}
@@ -225,12 +522,12 @@ jobs:
           ref: refs/tags/${{ env.TAG_NAME }}
 
       - name: Download build artifacts
-        run: gh run download "$GITHUB_RUN_ID" --name StormFuse-installer --dir .
+        run: gh run download "$GITHUB_RUN_ID" --pattern 'StormFuse-*' --dir release-assets
         env:
           GH_TOKEN: ${{ github.token }}
 
       - name: List release assets
-        run: find . -name "StormFuse-Setup-*.exe" -print
+        run: find release-assets -type f -print
 
       - name: Create release
         uses: softprops/action-gh-release@v3
@@ -240,4 +537,9 @@ jobs:
           tag_name: ${{ env.TAG_NAME }}
           generate_release_notes: true
           files: |
-            **/StormFuse-Setup-*.exe
+            release-assets/**/*.exe
+            release-assets/**/*.deb
+            release-assets/**/*.rpm
+            release-assets/**/*.AppImage
+            release-assets/**/*.flatpak
+            release-assets/**/*.snap

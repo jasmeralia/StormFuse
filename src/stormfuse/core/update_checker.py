@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,7 +48,16 @@ class _InstallerAsset(TypedDict):
     size: int
 
 
-def check_for_updates(include_prerelease: bool = False) -> UpdateInfo | None:
+def supports_installer_updates(platform: str | None = None) -> bool:
+    """Return whether this platform supports automatic installer updates."""
+    return (platform or sys.platform) == "win32"
+
+
+def check_for_updates(
+    include_prerelease: bool = False,
+    *,
+    platform: str | None = None,
+) -> UpdateInfo | None:
     """Return a newer installer release, or None when up to date or on soft failure."""
     current_version = _normalize_version(APP_VERSION)
     request = Request(
@@ -92,7 +102,11 @@ def check_for_updates(include_prerelease: bool = False) -> UpdateInfo | None:
 
     current_key = _version_key(current_version)
     for release in payload:
-        info = _parse_release(release, current_version=current_version)
+        info = _parse_release(
+            release,
+            current_version=current_version,
+            platform=platform,
+        )
         if info is None:
             continue
         if info.is_prerelease and not include_prerelease:
@@ -217,7 +231,12 @@ def validate_downloaded_installer(path: Path, *, expected_size: int = 0) -> None
         raise ValueError("Installer download is not a Windows executable.")
 
 
-def _parse_release(release: object, *, current_version: str) -> UpdateInfo | None:
+def _parse_release(
+    release: object,
+    *,
+    current_version: str,
+    platform: str | None = None,
+) -> UpdateInfo | None:
     if not isinstance(release, dict):
         return None
     if bool(release.get("draft")):
@@ -230,9 +249,15 @@ def _parse_release(release: object, *, current_version: str) -> UpdateInfo | Non
     if not latest_version:
         return None
 
-    asset = _matching_asset(release.get("assets"))
-    if asset is None:
-        return None
+    if supports_installer_updates(platform):
+        asset = _matching_asset(release.get("assets"))
+        if asset is None:
+            return None
+        download_url = asset["browser_download_url"]
+        download_size = asset["size"]
+    else:
+        download_url = ""
+        download_size = 0
 
     browser_url = release.get("html_url")
     if not isinstance(browser_url, str):
@@ -251,8 +276,8 @@ def _parse_release(release: object, *, current_version: str) -> UpdateInfo | Non
         latest_version=latest_version,
         release_name=release_name,
         release_notes=notes.strip(),
-        download_url=asset["browser_download_url"],
-        download_size=asset["size"],
+        download_url=download_url,
+        download_size=download_size,
         browser_url=browser_url,
         is_prerelease=bool(release.get("prerelease")),
     )

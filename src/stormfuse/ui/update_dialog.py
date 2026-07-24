@@ -8,7 +8,8 @@ import os
 from collections.abc import Callable
 from pathlib import Path
 
-from PyQt6.QtCore import QObject, QProcess, QThread, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, QProcess, QThread, QUrl, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
@@ -22,7 +23,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from stormfuse.core.update_checker import UpdateInfo, download_installer
+from stormfuse.core.update_checker import (
+    UpdateInfo,
+    download_installer,
+    supports_installer_updates,
+)
 from stormfuse.ui.theme import apply_widget_theme, show_warning_message
 
 log = logging.getLogger("stormfuse.ui.update_dialog")
@@ -70,9 +75,11 @@ class UpdateDialog(QDialog):
         | None = None,
         launch_installer_fn: Callable[[Path], bool] | None = None,
         exit_after_launch_fn: Callable[[], None] | None = None,
+        platform: str | None = None,
     ) -> None:
         super().__init__(parent)
         self._update_info = update_info
+        self._supports_installer_updates = supports_installer_updates(platform)
         self._download_dir = download_dir or (Path.home() / "Downloads")
         self._download_installer_fn = download_installer_fn or download_installer
         self._launch_installer_fn = launch_installer_fn or _launch_installer
@@ -87,11 +94,8 @@ class UpdateDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
-        intro = QLabel(
-            "A newer StormFuse installer is available. Download it, then StormFuse will exit so "
-            "the installer can replace the current build cleanly.",
-            self,
-        )
+        intro = QLabel(self._intro_text(), self)
+        intro.setObjectName("updateIntroLabel")
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
@@ -131,13 +135,33 @@ class UpdateDialog(QDialog):
         layout.addWidget(self._release_notes, stretch=1)
 
         self._button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
-        self._download_button = QPushButton("Download and Install", self)
-        self._download_button.setObjectName("updateDownloadButton")
-        self._download_button.clicked.connect(self._start_download)
-        self._button_box.addButton(self._download_button, QDialogButtonBox.ButtonRole.AcceptRole)
+        self._action_button = self._create_action_button()
+        self._button_box.addButton(self._action_button, QDialogButtonBox.ButtonRole.AcceptRole)
         self._button_box.rejected.connect(self.reject)
         layout.addWidget(self._button_box)
         apply_widget_theme(self)
+
+    def _intro_text(self) -> str:
+        if self._supports_installer_updates:
+            return (
+                "A newer StormFuse installer is available. Download it, then StormFuse will exit "
+                "so the installer can replace the current build cleanly."
+            )
+        return (
+            "A newer StormFuse release is available. Open the release page to choose and "
+            "install the package for your Linux distribution."
+        )
+
+    def _create_action_button(self) -> QPushButton:
+        if self._supports_installer_updates:
+            button = QPushButton("Download and Install", self)
+            button.setObjectName("updateDownloadButton")
+            button.clicked.connect(self._start_download)
+            return button
+        button = QPushButton("Open Release Page", self)
+        button.setObjectName("updateReleasePageButton")
+        button.clicked.connect(self._open_release_page)
+        return button
 
     def reject(self) -> None:
         if self._download_thread is not None:
@@ -145,12 +169,14 @@ class UpdateDialog(QDialog):
         super().reject()
 
     def _set_download_state(self, active: bool) -> None:
-        self._download_button.setEnabled(not active)
+        self._action_button.setEnabled(not active)
         close_button = self._button_box.button(QDialogButtonBox.StandardButton.Close)
         if close_button is not None:
             close_button.setEnabled(not active)
 
     def _start_download(self) -> None:
+        if not self._supports_installer_updates:
+            return
         if self._download_thread is not None:
             return
 
@@ -184,6 +210,9 @@ class UpdateDialog(QDialog):
         worker.finished.connect(thread.quit)
         thread.finished.connect(lambda: self._cleanup_download_thread(thread, worker))
         thread.start()
+
+    def _open_release_page(self) -> None:
+        QDesktopServices.openUrl(QUrl(self._update_info.browser_url))
 
     @pyqtSlot(int, int)
     def _on_download_progress(self, received: int, total: int) -> None:

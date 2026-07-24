@@ -18,14 +18,23 @@ def test_make_clean_removes_generated_artifacts_and_preserves_tracked_build_file
     tracked_paths = [
         tmp_path / "build" / "generate_third_party.py",
         tmp_path / "build" / "fetch_ffmpeg.py",
+        tmp_path / "build" / "fetch_ffmpeg_linux.py",
         tmp_path / "build" / "ffmpeg.sha256",
+        tmp_path / "build" / "ffmpeg-linux-amd64.sha256",
+        tmp_path / "build" / "ffmpeg-linux-arm64.sha256",
         tmp_path / "build" / "stormfuse.spec",
         tmp_path / "build" / "installer" / "stormfuse.nsi",
+        tmp_path / "build" / "linux" / "nfpm.yaml",
+        tmp_path / "build" / "linux" / "appimage" / "AppRun",
+        tmp_path / "build" / "linux" / "flatpak" / "net.windsofstorm.StormFuse.yaml",
+        tmp_path / "build" / "linux" / "snap" / "snapcraft.yaml",
     ]
     generated_paths = [
         tmp_path / "build" / "dist" / "StormFuse",
         tmp_path / "build" / "pyinstaller-cache",
         tmp_path / "build" / "installer" / "tmp",
+        tmp_path / "build" / "linux" / "flatpak" / "stage" / "StormFuse",
+        tmp_path / "build" / "linux" / "snap" / "stage" / "StormFuse",
         tmp_path / "dist" / "StormFuse.exe",
         tmp_path / ".pytest_cache" / "state",
         tmp_path / ".venv" / "bin" / "python",

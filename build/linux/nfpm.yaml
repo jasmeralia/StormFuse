@@ -1,0 +1,40 @@
+name: stormfuse
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+version_schema: semver
+section: video
+priority: optional
+maintainer: Morgan Blackthorne <morgan@windsofstorm.net>
+description: |
+  Combine multiple MKV/MP4 files or compress one video under a size ceiling.
+vendor: Winds of Storm
+homepage: https://github.com/jasmeralia/StormFuse
+license: GPL-3.0-or-later
+# The bundled PyInstaller onedir build links against the glibc of its build
+# environment (Ubuntu 24.04 LTS / ubuntu-24.04-arm, glibc 2.39) and is only
+# forward-compatible. Pinning a minimum glibc dependency per package format
+# makes an incompatible system refuse the install up front instead of
+# installing successfully and then failing to run.
+depends:
+  - ffmpeg
+overrides:
+  deb:
+    depends:
+      - ffmpeg
+      - libc6 (>= 2.39)
+  rpm:
+    depends:
+      - ffmpeg
+      - glibc >= 2.39
+contents:
+  - src: dist/StormFuse/
+    dst: /usr/lib/stormfuse
+    type: tree
+  - src: /usr/lib/stormfuse/StormFuse
+    dst: /usr/bin/stormfuse
+    type: symlink
+  - src: resources/linux/stormfuse.desktop
+    dst: /usr/share/applications/stormfuse.desktop
+  - src: resources/icons/stormfuse.png
+    dst: /usr/share/icons/hicolor/256x256/apps/stormfuse.png

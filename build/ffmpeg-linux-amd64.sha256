@@ -1,0 +1,9 @@
+# SHA-256 hash for the pinned BtbN/FFmpeg-Builds amd64 GPL static archive.
+# Release date: 2026-06-30 (last autobuild of the month -- per BtbN's
+# retention policy this is kept for 2 years, unlike arbitrary recent daily
+# builds, which are pruned after ~14 days).
+# Source release: https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-06-30-13-34
+# Includes h264_nvenc/hevc_nvenc/av1_nvenc (verified); johnvansickle.com's
+# static builds do not include NVENC support at all.
+# Format: <sha256>  <filename>
+0ba73bbd93472c7622f6dec26d334c5e62e64d858d072490b2844320970456cd  ffmpeg-n8.1.2-21-gce3c09c101-linux64-gpl-8.1.tar.xz

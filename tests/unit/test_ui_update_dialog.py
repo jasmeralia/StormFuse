@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PyQt6.QtCore import QUrl
 from PyQt6.QtWidgets import QLabel, QPushButton
 from pytestqt.qtbot import QtBot
 
@@ -26,7 +27,7 @@ def _update_info(*, is_prerelease: bool = False) -> UpdateInfo:
 
 
 def test_update_dialog_shows_release_details(qtbot: QtBot) -> None:
-    dialog = UpdateDialog(_update_info(is_prerelease=True))
+    dialog = UpdateDialog(_update_info(is_prerelease=True), platform="win32")
     qtbot.addWidget(dialog)
     dialog.show()
 
@@ -48,6 +49,7 @@ def test_update_dialog_accepts_when_installer_launches(qtbot: QtBot, tmp_path: P
         _update_info(),
         launch_installer_fn=lambda path: launched.append(path) or True,
         exit_after_launch_fn=lambda: exit_calls.append(True),
+        platform="win32",
     )
     qtbot.addWidget(dialog)
     dialog.show()
@@ -60,3 +62,30 @@ def test_update_dialog_accepts_when_installer_launches(qtbot: QtBot, tmp_path: P
     assert launched == [installer_path]
     assert exit_calls == [True]
     assert dialog.result() == dialog.DialogCode.Accepted
+
+
+def test_update_dialog_opens_release_page_on_linux(
+    qtbot: QtBot,
+    monkeypatch,
+) -> None:
+    opened_urls: list[QUrl] = []
+    monkeypatch.setattr(
+        "stormfuse.ui.update_dialog.QDesktopServices.openUrl",
+        lambda url: opened_urls.append(url) or True,
+    )
+    dialog = UpdateDialog(_update_info(), platform="linux")
+    qtbot.addWidget(dialog)
+    dialog.show()
+
+    labels = {label.objectName(): label.text() for label in dialog.findChildren(QLabel)}
+    buttons = {button.objectName(): button for button in dialog.findChildren(QPushButton)}
+
+    assert "Linux distribution" in labels["updateIntroLabel"]
+    assert "updateDownloadButton" not in buttons
+    release_button = buttons["updateReleasePageButton"]
+    assert release_button.text() == "Open Release Page"
+
+    release_button.click()
+
+    assert [url.toString() for url in opened_urls] == [_update_info().browser_url]
+    assert dialog._download_thread is None  # type: ignore[attr-defined]

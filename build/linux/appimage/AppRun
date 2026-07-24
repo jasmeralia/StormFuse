@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+
+APPDIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+
+# The bundled PyInstaller onedir build links against the glibc of its build
+# environment (Ubuntu 24.04 LTS, glibc 2.39) and is only forward-compatible,
+# per PyInstaller's documented Linux compatibility constraint. Fail with a
+# clear message here instead of a cryptic dynamic-linker error on older
+# systems, and instead of appearing to "work" while silently misbehaving.
+required_major=2
+required_minor=39
+host_version=$(getconf GNU_LIBC_VERSION 2>/dev/null | awk '{print $2}') || host_version=""
+if [ -n "${host_version}" ]; then
+    host_major=$(echo "${host_version}" | cut -d. -f1)
+    host_minor=$(echo "${host_version}" | cut -d. -f2)
+    if [ "${host_major}" -lt "${required_major}" ] || \
+       { [ "${host_major}" -eq "${required_major}" ] && [ "${host_minor}" -lt "${required_minor}" ]; }; then
+        echo "StormFuse requires glibc >= ${required_major}.${required_minor} (found ${host_version})." >&2
+        echo "This system predates the supported baseline (Ubuntu 24.04 LTS or equivalent)." >&2
+        echo "Build StormFuse from source instead: https://github.com/jasmeralia/StormFuse" >&2
+        exit 1
+    fi
+fi
+
+exec "$APPDIR/usr/lib/stormfuse/StormFuse" "$@"

@@ -1,0 +1,40 @@
+id: net.windsofstorm.StormFuse
+runtime: org.kde.Platform
+runtime-version: '6.9'
+sdk: org.kde.Sdk
+command: stormfuse
+
+# KDE 6.9 is based on Freedesktop 24.08, whose ffmpeg-full extension augments
+# the runtime's /usr/bin/ffmpeg and /usr/bin/ffprobe with the full codec set.
+add-extensions:
+  org.freedesktop.Platform.ffmpeg-full:
+    version: '24.08'
+    directory: lib/ffmpeg
+    add-ld-path: .
+
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --share=network
+  # StormFuse accepts arbitrary user-selected source and output paths. This
+  # sideload-only first draft favors usability over a Flathub-tight sandbox.
+  - --filesystem=host
+
+cleanup-commands:
+  - mkdir -p /app/lib/ffmpeg
+
+modules:
+  - name: stormfuse
+    buildsystem: simple
+    build-commands:
+      - install -d /app/lib/stormfuse /app/bin
+      - cp -a StormFuse/. /app/lib/stormfuse/
+      - ln -s ../lib/stormfuse/StormFuse /app/bin/stormfuse
+      - install -Dm644 stormfuse.desktop /app/share/applications/net.windsofstorm.StormFuse.desktop
+      - sed -i 's/^Icon=stormfuse$/Icon=net.windsofstorm.StormFuse/' /app/share/applications/net.windsofstorm.StormFuse.desktop
+      - install -Dm644 stormfuse.png /app/share/icons/hicolor/256x256/apps/net.windsofstorm.StormFuse.png
+    sources:
+      - type: dir
+        path: stage

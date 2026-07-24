@@ -29,7 +29,7 @@ Licensed under GPL v3.
 Built with:
   Python 3.12+ (PSF-2.0)
   PyQt6 (GPL v3) — Riverbank Computing
-  FFmpeg (GPL v2) — ffmpeg.org, build by gyan.dev
+  FFmpeg (GPL) — ffmpeg.org; package-specific build details in View Licenses
   PyInstaller, NSIS
   pytest, ruff, mypy, pylint
 

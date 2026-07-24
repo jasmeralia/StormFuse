@@ -64,14 +64,16 @@ MANUAL_COMPONENTS = (
         summary="Bundled by PyInstaller for the packaged desktop application.",
     ),
     NoticeEntry(
-        name="FFmpeg (gyan.dev essentials build)",
+        name="FFmpeg (gyan.dev and BtbN/FFmpeg-Builds builds)",
         role="Bundled executable tools",
         version="See `FFMPEG-SOURCE.txt`",
-        license_name="GPL-2.0-or-later",
-        homepage="https://www.gyan.dev/ffmpeg/builds/",
+        license_name="GPL-2.0-or-later / GPL-3.0",
+        homepage="https://ffmpeg.org/",
         summary=(
-            "Ships as `ffmpeg.exe` and `ffprobe.exe`; corresponding source "
-            "details and pinned hashes live in `FFMPEG-SOURCE.txt`."
+            "Windows ships the gyan.dev executables; AppImages ship a "
+            "BtbN/FFmpeg-Builds static Linux build (NVENC-capable, unlike "
+            "other static-build sources). Source details and pinned hashes "
+            "live in `FFMPEG-SOURCE.txt`."
         ),
     ),
 )

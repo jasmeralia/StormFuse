@@ -1,0 +1,46 @@
+name: stormfuse
+base: core24
+version: '0.0.0'  # Replaced with the tag-derived version by release.yml.
+summary: Combine and compress video files
+description: |
+  StormFuse combines multiple MKV/MP4 files or compresses one video under a
+  target size ceiling. It prefers NVENC and falls back to libx264.
+grade: stable
+# Strict confinement's `home` plug only grants non-hidden files under the
+# user's home directory, and `removable-media` doesn't auto-connect -- so a
+# strictly-confined StormFuse would silently fail to read/write files on
+# external drives, /mnt, /run/media, or hidden directories, breaking its
+# core "arbitrary source/output path" behavior with no file-chooser portal
+# integration to fall back on. Classic confinement gives full host
+# filesystem access like a traditional app, matching the same "sideload-only
+# first draft, not a Flathub/Snap Store submission" tradeoff already made
+# for the Flatpak build's `--filesystem=host`. Install locally with
+# `sudo snap install --classic --dangerous <file>.snap`.
+confinement: classic
+
+apps:
+  stormfuse:
+    command: usr/lib/stormfuse/StormFuse
+    desktop: usr/share/applications/stormfuse.desktop
+    environment:
+      PATH: $SNAP/usr/bin:$SNAP/bin:$PATH
+
+parts:
+  stormfuse:
+    plugin: nil
+    source: stage/StormFuse
+    stage-packages:
+      - ffmpeg
+    override-build: |
+      install -d "$CRAFT_PART_INSTALL/usr/lib/stormfuse"
+      cp -a "$CRAFT_PART_SRC"/. "$CRAFT_PART_INSTALL/usr/lib/stormfuse/"
+  desktop-integration:
+    plugin: nil
+    source: stage/resources
+    override-build: |
+      install -Dm644 "$CRAFT_PART_SRC/linux/stormfuse.desktop" \
+        "$CRAFT_PART_INSTALL/usr/share/applications/stormfuse.desktop"
+      sed -i 's|^Icon=stormfuse$|Icon=${SNAP}/usr/share/icons/hicolor/256x256/apps/stormfuse.png|' \
+        "$CRAFT_PART_INSTALL/usr/share/applications/stormfuse.desktop"
+      install -Dm644 "$CRAFT_PART_SRC/icons/stormfuse.png" \
+        "$CRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps/stormfuse.png"

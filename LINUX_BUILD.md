@@ -1,17 +1,64 @@
-# StormFuse Linux Build
+# StormFuse on Linux
 
-Linux is a secondary, experimental StormFuse target. Windows remains the
-officially packaged release target; Linux currently produces only a PyInstaller
-onedir executable.
+Linux is a secondary StormFuse target. Every tagged release provides DEB, RPM,
+AppImage, Flatpak, and Snap packages for both amd64 and arm64 as sideloadable
+GitHub release assets. No package is published to an external store or package
+repository.
 
 ## Target
 
 | Concern | Status |
 |---------|--------|
 | Tested desktop | Kubuntu 26.04, KDE Plasma, native Linux |
-| Build output | `dist/StormFuse/StormFuse` |
-| Packaging | No `.deb`, snap, AppImage, Flatpak, or `.desktop` file yet |
-| FFmpeg | System `ffmpeg` / `ffprobe` from `PATH`; not bundled |
+| Architectures | amd64 (`x86_64`) and arm64 (`aarch64`) |
+| Release packages | `.deb`, `.rpm`, `.AppImage`, `.flatpak`, `.snap` |
+| Local staging output | `dist/StormFuse/StormFuse` |
+| Desktop integration | Shared `.desktop` entry and StormFuse icon in every package |
+
+## Choose a Package
+
+Download the file for your architecture from
+[GitHub Releases](https://github.com/jasmeralia/StormFuse/releases).
+
+| Format | Installation | FFmpeg source |
+|--------|--------------|---------------|
+| DEB | `sudo apt install ./StormFuse-<version>-<arch>.deb` | The package depends on the distribution's `ffmpeg` package. |
+| RPM | `sudo dnf install ./StormFuse-<version>-<arch>.rpm` | The package requires `ffmpeg`; see the warning below. |
+| AppImage | `chmod +x StormFuse-*.AppImage` and run it directly | Pinned static `ffmpeg` and `ffprobe` are bundled. |
+| Flatpak | `flatpak install --user ./StormFuse-*.flatpak` | The Freedesktop `ffmpeg-full` runtime extension supplies full codec support. |
+| Snap | `sudo snap install --classic --dangerous ./StormFuse-*.snap` | Ubuntu's `ffmpeg` package is staged inside the snap. |
+
+> **RPM users:** Fedora and RHEL official repositories do not ship the full
+> `ffmpeg` package because of codec licensing. Enable RPM Fusion (or an
+> equivalent third-party multimedia repository) before installing the
+> StormFuse RPM, or `dnf` will be unable to resolve its `ffmpeg` dependency.
+
+> **Snap users:** the Snap uses classic (unconfined) confinement, not strict
+> — strict confinement's `home`/`removable-media` plugs can't reliably reach
+> files outside your home directory (external drives, `/mnt`, `/run/media`)
+> without portal support StormFuse doesn't implement, which would silently
+> break combining/compressing files from those locations. `--classic` is
+> required at install time as a result.
+
+## System Requirements: glibc Baseline
+
+The bundled StormFuse binary is built on `ubuntu-latest` /
+`ubuntu-24.04-arm` (Ubuntu 24.04 LTS, glibc 2.39) and, like any PyInstaller
+Linux build, is only forward-compatible — it will not run on an older glibc.
+This is a hard floor, not a soft recommendation:
+
+| Format | Enforcement |
+|--------|-------------|
+| DEB | Depends on `libc6 (>= 2.39)`. `apt`/`dpkg` refuses to install on an older system. |
+| RPM | Requires `glibc >= 2.39`. `dnf`/`rpm` refuses to install on an older system. |
+| AppImage | `AppRun` checks the host's glibc version at startup and exits with a clear error on an older system, rather than crashing with an opaque dynamic-linker error. |
+| Flatpak | Unaffected — runs against the `org.kde.Platform` runtime's own bundled glibc, not the host's. |
+| Snap | Unaffected — runs against the `core24` base snap's own bundled glibc, not the host's. |
+
+Practically, this means Ubuntu 24.04 LTS or newer (and comparably current
+Debian/Fedora/RHEL releases) for DEB/RPM/AppImage. Anyone on an older system
+should use Flatpak, Snap, or build from source instead — see
+[Building From Source](#run-from-source) below.
 
 ## System Dependencies
 
@@ -51,7 +98,9 @@ make run
 ```
 
 On Linux, `make fetch-ffmpeg` is not needed. That target downloads the pinned
-Windows ffmpeg build used by the Windows installer.
+Windows build. The `fetch-ffmpeg-linux-*` targets are reserved for AppImage CI;
+normal source, DEB/RPM, Flatpak, and Snap builds use their system/runtime
+mechanisms.
 
 ## Build The Onedir Executable
 
@@ -60,14 +109,15 @@ make installer
 ./dist/StormFuse/StormFuse
 ```
 
-On Linux, `make installer` stops after PyInstaller. It does not run NSIS and
-does not create an installer package.
+On Linux, `make installer` stops after PyInstaller. Release CI uses this onedir
+tree as the input to each dedicated packaging tool.
 
 ## Desktop Integration
 
-There is no `.desktop` file or application-menu integration yet. That work is
-planned alongside the Linux packaging decision: snap vs AppImage vs Flatpak vs
-`.deb` / `.rpm`.
+Packaged builds install or export `resources/linux/stormfuse.desktop` and the
+existing StormFuse icon. DEB and RPM packages place the application under
+`/usr/lib/stormfuse` and expose `/usr/bin/stormfuse`; the sandboxed and portable
+formats provide their own equivalent launch entry.
 
 ## Theme Detection
 

@@ -168,6 +168,16 @@ for new code:
 - No network URLs as ffmpeg inputs. Local files only.
 - No new encoders added without a pass through docs/DESIGN.md §7.4 and corresponding
   unit tests.
+- **Never swap the source of a bundled/pinned binary** (ffmpeg builds, packaging
+  tools like nfpm/appimagetool, etc.) without both due diligence and explicit
+  user authorization first. Verifying the artifact itself (hash, functionality)
+  is not enough — check whether the provider is one the upstream project
+  itself points to or otherwise has a real trust signal, and present that
+  reasoning to the user *before* changing the pin, not after. This bit us
+  once already: a bundled ffmpeg source got swapped to fix a real bug
+  (missing NVENC support) without first checking whether the replacement was
+  actually a reputable source — it turned out fine on inspection, but that
+  was luck, not process.
 
 ---
 

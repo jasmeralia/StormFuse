@@ -26,12 +26,19 @@ Download the file for your architecture from
 | RPM | `sudo dnf install ./StormFuse-<version>-<arch>.rpm` | The package requires `ffmpeg`; see the warning below. |
 | AppImage | `chmod +x StormFuse-*.AppImage` and run it directly | Pinned static `ffmpeg` and `ffprobe` are bundled. |
 | Flatpak | `flatpak install --user ./StormFuse-*.flatpak` | The Freedesktop `ffmpeg-full` runtime extension supplies full codec support. |
-| Snap | `sudo snap install --dangerous ./StormFuse-*.snap` | Ubuntu's `ffmpeg` package is staged inside the snap. |
+| Snap | `sudo snap install --classic --dangerous ./StormFuse-*.snap` | Ubuntu's `ffmpeg` package is staged inside the snap. |
 
 > **RPM users:** Fedora and RHEL official repositories do not ship the full
 > `ffmpeg` package because of codec licensing. Enable RPM Fusion (or an
 > equivalent third-party multimedia repository) before installing the
 > StormFuse RPM, or `dnf` will be unable to resolve its `ffmpeg` dependency.
+
+> **Snap users:** the Snap uses classic (unconfined) confinement, not strict
+> — strict confinement's `home`/`removable-media` plugs can't reliably reach
+> files outside your home directory (external drives, `/mnt`, `/run/media`)
+> without portal support StormFuse doesn't implement, which would silently
+> break combining/compressing files from those locations. `--classic` is
+> required at install time as a result.
 
 ## System Requirements: glibc Baseline
 

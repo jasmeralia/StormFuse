@@ -49,6 +49,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the workflow's default token permissions were reduced from
   repo-wide `contents: write` to `contents: read`, with `write` granted only
   to the tag-creation and release-publish jobs that need it.
+- The AppImage's bundled ffmpeg/ffprobe now come from BtbN/FFmpeg-Builds
+  (the sole provider ffmpeg.org's own download page links to for Linux
+  static builds) instead of johnvansickle.com, whose static builds have no
+  NVENC support at all — since StormFuse prefers bundled ffmpeg over `PATH`,
+  that silently defeated NVENC for every AppImage user regardless of their
+  hardware. Pinned to a specific dated release BtbN's retention policy keeps
+  for 2 years, verified end-to-end (checksum, NVENC encoder list, glibc
+  requirement) before adoption.
+- The Snap now uses classic (not strict) confinement. Strict confinement's
+  `home`/`removable-media` plugs can't reliably reach files outside `$HOME`
+  (external drives, `/mnt`, `/run/media`) without file-chooser portal
+  support StormFuse doesn't implement, which would have silently broken its
+  arbitrary source/output path behavior. Matches the same sideload-only,
+  usability-over-sandboxing tradeoff already made for the Flatpak build's
+  `--filesystem=host`. Install requires `--classic` alongside `--dangerous`.
 
 #### Linux native build (§3, §7.1, §11.3, §12)
 - Added experimental native Linux run/build support: Linux resolves

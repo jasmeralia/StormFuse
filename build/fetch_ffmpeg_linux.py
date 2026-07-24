@@ -20,14 +20,25 @@ from urllib.request import urlopen
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FFMPEG_DIR = REPO_ROOT / "resources" / "ffmpeg"
+# Pinned to BtbN/FFmpeg-Builds' last autobuild release of June 2026
+# (autobuild-2026-06-30-13-34), not the newest one available. Per BtbN's
+# retention policy, only the 14 most recent daily builds plus the *last
+# build of each month* (kept 2 years) survive -- an arbitrary recent dated
+# tag would 404 within weeks. This build includes h264_nvenc/hevc_nvenc/
+# av1_nvenc, unlike johnvansickle.com's static builds, which are pure-CPU
+# only -- StormFuse prefers bundled ffmpeg over PATH, so an AppImage without
+# NVENC support would silently defeat NVENC for every AppImage user
+# regardless of their hardware.
+_BTBN_RELEASE = "autobuild-2026-06-30-13-34"
+_BTBN_BUILD = "ffmpeg-n8.1.2-21-gce3c09c101"
 ARCHIVE_URLS = {
     "amd64": (
-        "https://johnvansickle.com/ffmpeg/releases/"
-        "ffmpeg-release-amd64-static.tar.xz"
+        f"https://github.com/BtbN/FFmpeg-Builds/releases/download/{_BTBN_RELEASE}/"
+        f"{_BTBN_BUILD}-linux64-gpl-8.1.tar.xz"
     ),
     "arm64": (
-        "https://johnvansickle.com/ffmpeg/releases/"
-        "ffmpeg-release-arm64-static.tar.xz"
+        f"https://github.com/BtbN/FFmpeg-Builds/releases/download/{_BTBN_RELEASE}/"
+        f"{_BTBN_BUILD}-linuxarm64-gpl-8.1.tar.xz"
     ),
 }
 

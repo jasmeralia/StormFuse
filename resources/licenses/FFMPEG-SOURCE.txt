@@ -23,19 +23,28 @@ extracts the bundled `ffmpeg.exe` and `ffprobe.exe` from that pinned archive.
 
 Linux AppImage bundles
 ----------------------
-Build provider   : John Van Sickle (https://johnvansickle.com/ffmpeg/)
-Build variant    : amd64 and arm64 static release builds
-Version          : 7.0.2
-Release date     : 2024-06-29
-Archive URLs     : https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-                   https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz
+Build provider   : BtbN/FFmpeg-Builds (https://github.com/BtbN/FFmpeg-Builds)
+Build variant    : linux64-gpl-8.1 and linuxarm64-gpl-8.1 static builds
+Version          : n8.1.2
+Release date     : 2026-06-30 (last autobuild of the month; BtbN's retention
+                   policy keeps this for 2 years, unlike arbitrary recent
+                   daily builds, which are pruned after ~14 days)
+Release tag      : https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-06-30-13-34
+Archive URLs     : https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-06-30-13-34/ffmpeg-n8.1.2-21-gce3c09c101-linux64-gpl-8.1.tar.xz
+                   https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-06-30-13-34/ffmpeg-n8.1.2-21-gce3c09c101-linuxarm64-gpl-8.1.tar.xz
+
+Chosen over johnvansickle.com's static builds (used previously) because
+those do not include NVENC support at all; since StormFuse prefers bundled
+ffmpeg over PATH, that silently defeated NVENC for every AppImage user
+regardless of their hardware. This build includes h264_nvenc/hevc_nvenc/
+av1_nvenc (verified).
 
 Pinned archive SHA-256
 ----------------------
-ffmpeg-release-amd64-static.tar.xz :
-  abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67
-ffmpeg-release-arm64-static.tar.xz :
-  f4149bb2b0784e30e99bdda85471c9b5930d3402014e934a5098b41d0f7201b1
+ffmpeg-n8.1.2-21-gce3c09c101-linux64-gpl-8.1.tar.xz :
+  0ba73bbd93472c7622f6dec26d334c5e62e64d858d072490b2844320970456cd
+ffmpeg-n8.1.2-21-gce3c09c101-linuxarm64-gpl-8.1.tar.xz :
+  d3f90a71a38238466de2e4dc98537862d244e3307383435f94cbc4b8491033f8
 
 `make fetch-ffmpeg-linux-amd64` and `make fetch-ffmpeg-linux-arm64` verify the
 appropriate archive before extracting `ffmpeg` and `ffprobe`. These targets are
@@ -45,11 +54,12 @@ Source code
 -----------
 FFmpeg source is available at https://github.com/FFmpeg/FFmpeg
 The gyan.dev build recipe is at https://github.com/GyanD/codexffmpeg
-John Van Sickle publishes the corresponding release sources from
-https://johnvansickle.com/ffmpeg/release-source/.
+BtbN/FFmpeg-Builds' build scripts (satisfying the "corresponding source" for
+the build recipe) are at https://github.com/BtbN/FFmpeg-Builds.
 
 License
 -------
 The gyan.dev build is licensed under the GNU General Public License version 2
-or later. John Van Sickle's static builds are licensed under the GNU General
-Public License version 3. See GPL-2.0.txt and GPL-3.0.txt in this directory.
+or later. The BtbN/FFmpeg-Builds GPL static builds are configured with
+--enable-gpl --enable-version3, i.e. licensed under the GNU General Public
+License version 3. See GPL-2.0.txt and GPL-3.0.txt in this directory.

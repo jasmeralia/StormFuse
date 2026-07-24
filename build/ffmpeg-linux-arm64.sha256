@@ -1,5 +1,8 @@
-# SHA-256 hash for the pinned johnvansickle.com FFmpeg 7.0.2 arm64 static archive.
-# Release date: 2024-06-29
-# Source release: https://johnvansickle.com/ffmpeg/
+# SHA-256 hash for the pinned BtbN/FFmpeg-Builds arm64 GPL static archive.
+# Release date: 2026-06-30 (last autobuild of the month -- see amd64 pin's
+# comment for why this specific build was chosen over a newer one).
+# Source release: https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-06-30-13-34
+# Same build family as the amd64 archive; includes NVENC support (moot on
+# arm64 in practice, kept for consistency with the amd64 build).
 # Format: <sha256>  <filename>
-f4149bb2b0784e30e99bdda85471c9b5930d3402014e934a5098b41d0f7201b1  ffmpeg-release-arm64-static.tar.xz
+d3f90a71a38238466de2e4dc98537862d244e3307383435f94cbc4b8491033f8  ffmpeg-n8.1.2-21-gce3c09c101-linuxarm64-gpl-8.1.tar.xz

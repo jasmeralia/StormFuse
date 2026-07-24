@@ -182,6 +182,48 @@ def test_linux_packages_enforce_a_glibc_baseline() -> None:
     assert "required_minor=39" in app_run
 
 
+def test_appimage_ffmpeg_source_is_nvenc_capable() -> None:
+    # johnvansickle.com's static builds (used previously) have no NVENC
+    # support at all; since StormFuse prefers bundled ffmpeg over PATH, that
+    # silently defeated NVENC for every AppImage user. BtbN/FFmpeg-Builds'
+    # GPL static builds include it.
+    import importlib.util
+
+    script_path = REPO_ROOT / "build" / "fetch_ffmpeg_linux.py"
+    spec = importlib.util.spec_from_file_location("fetch_ffmpeg_linux_check", script_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    source_notice = (REPO_ROOT / "resources" / "licenses" / "FFMPEG-SOURCE.txt").read_text(
+        encoding="utf-8"
+    )
+
+    # johnvansickle.com may still be mentioned in an explanatory comment
+    # (why it was rejected), but must not be an actual download source.
+    for url in module.ARCHIVE_URLS.values():
+        assert "johnvansickle.com" not in url
+        assert "BtbN/FFmpeg-Builds" in url
+    assert "NVENC" in source_notice
+
+
+def test_snap_uses_classic_confinement_for_arbitrary_file_access() -> None:
+    snapcraft_config = (REPO_ROOT / "build" / "linux" / "snap" / "snapcraft.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    # Strict confinement's home/removable-media plugs can't reliably reach
+    # files outside $HOME without portal support StormFuse doesn't
+    # implement, which would silently break its arbitrary source/output
+    # path behavior for external drives, /mnt, /run/media, etc.
+    assert "confinement: classic" in snapcraft_config
+    assert "confinement: strict" not in snapcraft_config
+
+    linux_build_doc = (REPO_ROOT / "LINUX_BUILD.md").read_text(encoding="utf-8")
+    assert "snap install --classic --dangerous" in linux_build_doc
+
+
 def test_makefile_supports_windows_virtualenv_paths() -> None:
     makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
 

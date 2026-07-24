@@ -193,7 +193,7 @@ Third-party license matrix:
 | StormFuse | GPL-3.0 | Source + binary |
 | PyQt6 | GPL-3.0 (Riverbank) | Imported module, compatible with GPL v3 app |
 | FFmpeg (gyan.dev essentials build) | GPL-2.0 due to `libx264`/`libx265` | Shipped as separate `.exe` files and invoked via subprocess |
-| FFmpeg (John Van Sickle static builds) | GPL-3.0 | Shipped as separate executables in AppImages |
+| FFmpeg (BtbN/FFmpeg-Builds static builds) | GPL-3.0 | Shipped as separate executables in AppImages |
 | FFmpeg (Linux package/runtime builds) | Distribution-specific GPL build | Dependency/runtime component for DEB, RPM, Flatpak, and Snap |
 | PyInstaller | GPL with bootloader exception | Build tool only, not shipped |
 | NSIS | zlib/libpng | Build tool only, not shipped |
@@ -205,7 +205,7 @@ Installer license artifacts live under `resources/licenses/`.
 
 - Python 3.14+
 - PyQt6 by Riverbank Computing
-- FFmpeg by the FFmpeg project, using gyan.dev, John Van Sickle, and Linux distribution builds
+- FFmpeg by the FFmpeg project, using gyan.dev, BtbN/FFmpeg-Builds, and Linux distribution builds
 - PyInstaller, NSIS, nFPM, appimagetool, flatpak-builder, and Snapcraft for packaging
 - pytest, ruff, mypy, and pylint for development
 - Developed with assistance from Claude (Anthropic) and Codex (OpenAI)

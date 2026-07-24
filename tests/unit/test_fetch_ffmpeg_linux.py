@@ -28,8 +28,8 @@ fetch_ffmpeg_linux = _load_module()
 
 def test_pinned_archive_hashes_match_configured_downloads() -> None:
     expected = {
-        "amd64": "abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67",
-        "arm64": "f4149bb2b0784e30e99bdda85471c9b5930d3402014e934a5098b41d0f7201b1",
+        "amd64": "0ba73bbd93472c7622f6dec26d334c5e62e64d858d072490b2844320970456cd",
+        "arm64": "d3f90a71a38238466de2e4dc98537862d244e3307383435f94cbc4b8491033f8",
     }
 
     for arch, digest in expected.items():
@@ -46,7 +46,9 @@ def _static_archive(*, include_ffprobe: bool = True) -> bytes:
         if include_ffprobe:
             binaries["ffprobe"] = b"ffprobe-binary"
         for name, content in binaries.items():
-            member = tarfile.TarInfo(f"ffmpeg-7.0.2-amd64-static/{name}")
+            # Arbitrary nested path -- extract_binaries() matches on
+            # basename alone regardless of the containing directory depth.
+            member = tarfile.TarInfo(f"ffmpeg-build/bin/{name}")
             member.size = len(content)
             member.mode = 0o755
             archive.addfile(member, io.BytesIO(content))

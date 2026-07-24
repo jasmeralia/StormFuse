@@ -465,6 +465,14 @@ jobs:
         with:
           ref: refs/tags/${{ needs.resolve.outputs.tag_name }}
 
+      # actions/checkout's file ownership doesn't match this container's
+      # user, so `gh run download` (which shells out to git internally)
+      # refuses to operate: "detected dubious ownership in repository".
+      # Fresh disposable CI container each run, so trusting it globally is
+      # fine.
+      - name: Trust the checked-out workspace in this container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Download staged Flatpak payload
         run: |
           gh run download "$GITHUB_RUN_ID" \

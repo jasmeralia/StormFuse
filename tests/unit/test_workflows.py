@@ -105,7 +105,10 @@ def test_release_pipeline_builds_all_linux_packages_natively() -> None:
     ):
         assert job in workflow
 
-    assert workflow.count("ubuntu-24.04-arm") == 4
+    # 5, not 4: build-flatpak is split into build-flatpak-payload (normal
+    # runner) and build-flatpak (flatpak-builder's special container), each
+    # with their own arm64 matrix leg.
+    assert workflow.count("ubuntu-24.04-arm") == 5
     assert "nfpm package --config build/linux/nfpm.yaml --packager deb" in workflow
     assert "nfpm package --config build/linux/nfpm.yaml --packager rpm" in workflow
     assert "make fetch-ffmpeg-linux-${ARCH}" in workflow
@@ -117,6 +120,22 @@ def test_release_pipeline_builds_all_linux_packages_natively() -> None:
 
     for suffix in ("deb", "rpm", "AppImage", "flatpak", "snap"):
         assert f"release-assets/**/*.{suffix}" in workflow
+
+
+def test_flatpak_build_runs_in_the_polkit_authorized_container() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    # flatpak-builder's system-level SDK/runtime install requires polkit
+    # authorization a bare runner's default user doesn't have ("Deploy not
+    # allowed for user"); Flathub's own container image has it configured.
+    # The PyInstaller build itself stays on a normal runner in a separate
+    # job (build-flatpak-payload) and hands off via an intermediate
+    # artifact, since that container isn't meant for building Python apps.
+    assert "build-flatpak-payload:" in workflow
+    assert "ghcr.io/flathub-infra/flatpak-github-actions:kde-6.9" in workflow
+    assert "options: --privileged" in workflow
+    assert "needs: [resolve, build-flatpak-payload]" in workflow
+    assert "flatpak-stage-" in workflow
 
 
 def test_windows_release_is_not_blocked_by_linux_packaging_failures() -> None:
@@ -154,7 +173,7 @@ def test_release_workflow_uses_least_privilege_token_permissions() -> None:
 
     # Every release-artifact upload fails loudly on an empty match, so a
     # job's success always implies its artifact actually exists.
-    assert workflow.count("if-no-files-found: error") == 5
+    assert workflow.count("if-no-files-found: error") == 6
 
 
 def test_appimagetool_download_is_checksum_verified() -> None:

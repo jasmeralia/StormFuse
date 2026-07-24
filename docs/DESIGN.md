@@ -922,18 +922,30 @@ plus any type stubs.
      `is_release`): fetch the architecture's pinned static FFmpeg archive,
      build the bundled onedir output, assemble an AppDir, and run pinned
      appimagetool.
-  7. `build-flatpak` on native x86_64/aarch64 Ubuntu runners (gated on
-     `is_release`): build a sideloadable bundle from the KDE runtime manifest.
-  8. `build-snap` on native amd64/arm64 Ubuntu runners (gated on `is_release`):
-     build the onedir output and a strict `core24` snap with staged ffmpeg.
-  9. `release` on `ubuntu-latest` (gated on `is_release` **and**
-     `build-installer` succeeding — deliberately *not* gated on every Linux
-     packaging job succeeding, so a broken/flaky Linux leg never withholds
-     the Windows installer): download whatever release artifacts were
-     produced and publish one GitHub release with notes generated natively
-     by `softprops/action-gh-release` (`fail_on_unmatched_files: false`, so
-     missing formats are skipped rather than failing the step).
-  10. `verify-release-complete` on `ubuntu-latest` (always runs when
+  7. `build-flatpak-payload` on native x86_64/aarch64 Ubuntu runners (gated
+     on `is_release`): build the plain onedir output and stage it plus the
+     desktop entry/icon, uploaded as an intermediate artifact.
+  8. `build-flatpak` on the same native runners (needs
+     `build-flatpak-payload`), but running inside
+     `ghcr.io/flathub-infra/flatpak-github-actions:kde-6.9` with
+     `options: --privileged`: downloads the staged payload and runs
+     flatpak-builder to produce a sideloadable bundle from the KDE runtime
+     manifest. flatpak-builder's system-level SDK/runtime install requires
+     polkit authorization a bare runner's default user doesn't have (fails
+     with "Deploy not allowed for user"); Flathub's own container image has
+     the needed polkit rules configured. That image isn't meant for building
+     a Python/PyQt6 app, hence the split from `build-flatpak-payload`.
+  9. `build-snap` on native amd64/arm64 Ubuntu runners (gated on `is_release`):
+     build the onedir output and a classic-confinement `core24` snap with
+     staged ffmpeg.
+  10. `release` on `ubuntu-latest` (gated on `is_release` **and**
+      `build-installer` succeeding — deliberately *not* gated on every Linux
+      packaging job succeeding, so a broken/flaky Linux leg never withholds
+      the Windows installer): download whatever release artifacts were
+      produced and publish one GitHub release with notes generated natively
+      by `softprops/action-gh-release` (`fail_on_unmatched_files: false`, so
+      missing formats are skipped rather than failing the step).
+  11. `verify-release-complete` on `ubuntu-latest` (always runs when
       `is_release` is true, after all packaging jobs and `release`): does not
       gate publishing — it exists purely to fail the overall workflow run
       loudly whenever any packaging job didn't succeed, so a partial release

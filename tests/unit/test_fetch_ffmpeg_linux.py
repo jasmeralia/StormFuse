@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import sys
 import tarfile
 from pathlib import Path
 
@@ -78,6 +79,10 @@ def test_load_expected_hash_reads_sha256sum_format(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="NTFS has no POSIX execute bit; this script only ever runs in Linux CI",
+)
 def test_extract_binaries_writes_executable_files(tmp_path: Path) -> None:
     ffmpeg, ffprobe = fetch_ffmpeg_linux.extract_binaries(_static_archive(), tmp_path)
 

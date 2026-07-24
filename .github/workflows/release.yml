@@ -380,8 +380,18 @@ jobs:
           path: dist/StormFuse-*.AppImage
           if-no-files-found: error
 
-  build-flatpak:
-    name: Build Flatpak (${{ matrix.package_arch }})
+  # flatpak-builder's system-level operations (installing the SDK/runtime
+  # via `flatpak --system install`) require polkit authorization that a
+  # bare GitHub-hosted runner's default user doesn't have -- it fails with
+  # "Deploy not allowed for user". The fix is running inside Flathub's own
+  # prebuilt container image (ghcr.io/flathub-infra/flatpak-github-actions),
+  # which has the necessary polkit rules configured. That image is geared
+  # purely for flatpak-builder, not for building a Python/PyQt6 app, so the
+  # PyInstaller build stays on a normal runner (build-flatpak-payload,
+  # reusing the same proven make deps/make installer steps every other
+  # Linux job uses) and only the actual bundling step runs containerized.
+  build-flatpak-payload:
+    name: Build Flatpak Payload (${{ matrix.package_arch }})
     if: needs.resolve.outputs.is_release == 'true'
     needs: [resolve, create-tag]
     runs-on: ${{ matrix.runner }}
@@ -426,12 +436,42 @@ jobs:
           cp resources/linux/stormfuse.desktop "${stage}/stormfuse.desktop"
           cp resources/icons/stormfuse.png "${stage}/stormfuse.png"
 
-      - name: Install Flatpak tooling
+      - name: Upload staged Flatpak payload
+        uses: actions/upload-artifact@v7
+        with:
+          name: flatpak-stage-${{ matrix.package_arch }}
+          path: build/linux/flatpak/stage
+          if-no-files-found: error
+
+  build-flatpak:
+    name: Build Flatpak (${{ matrix.package_arch }})
+    needs: [resolve, build-flatpak-payload]
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.9
+      options: --privileged
+    permissions:
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package_arch: x86_64
+            runner: ubuntu-latest
+          - package_arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag_name }}
+
+      - name: Download staged Flatpak payload
         run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
-          sudo flatpak remote-add --if-not-exists flathub \
-            https://flathub.org/repo/flathub.flatpakrepo
+          gh run download "$GITHUB_RUN_ID" \
+            --name "flatpak-stage-${{ matrix.package_arch }}" \
+            --dir build/linux/flatpak/stage
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Build Flatpak bundle
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6

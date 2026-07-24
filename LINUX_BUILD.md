@@ -39,6 +39,12 @@ Download the file for your architecture from
 > without portal support StormFuse doesn't implement, which would silently
 > break combining/compressing files from those locations. `--classic` is
 > required at install time as a result.
+>
+> `--dangerous` is also required and is not a red flag specific to
+> StormFuse — it just tells `snapd` to skip the assertion/signature checks
+> it normally requires from the Snap Store. Since this Snap isn't published
+> there, the file has no store signature, the same reason a local `.deb` or
+> `.flatpak` needs "install this unsigned file anyway" handling too.
 
 ## System Requirements: glibc Baseline
 

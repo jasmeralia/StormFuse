@@ -137,6 +137,12 @@ def test_flatpak_build_runs_in_the_polkit_authorized_container() -> None:
     assert "needs: [resolve, build-flatpak-payload]" in workflow
     assert "flatpak-stage-" in workflow
 
+    # actions/checkout's file ownership doesn't match this container's
+    # user, so `gh run download` (which shells out to git) refuses to
+    # operate ("detected dubious ownership in repository") unless the
+    # workspace is explicitly trusted first.
+    assert 'git config --global --add safe.directory "$GITHUB_WORKSPACE"' in workflow
+
 
 def test_windows_release_is_not_blocked_by_linux_packaging_failures() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")

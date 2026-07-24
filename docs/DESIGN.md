@@ -722,6 +722,20 @@ DEB/RPM install the onedir tree under `/usr/lib/stormfuse` with a
 `/usr/bin/stormfuse` symlink. Every format installs or exports the shared
 freedesktop desktop entry and existing PNG icon.
 
+**glibc baseline**: the shared onedir build is compiled on `ubuntu-latest` /
+`ubuntu-24.04-arm` (Ubuntu 24.04 LTS, glibc 2.39) and is only
+forward-compatible, per PyInstaller's documented Linux constraint. Rather than
+let an older system install successfully and then fail at runtime, this floor
+is enforced per format: `.deb` depends on `libc6 (>= 2.39)` and `.rpm`
+requires `glibc >= 2.39` (both via `overrides:` in `build/linux/nfpm.yaml`,
+since nfpm overrides replace rather than merge the top-level `depends:` list),
+so the package manager itself refuses the install. AppImage has no install
+step to gate on, so `build/linux/appimage/AppRun` checks
+`getconf GNU_LIBC_VERSION` before exec'ing the bundled binary and exits with a
+clear message on an older system. Flatpak and Snap are unaffected — both run
+against their own bundled runtime glibc (`org.kde.Platform` / `core24`), not
+the host's.
+
 ### 12.4 Code signing
 
 Out of scope for v1. Design leaves a hook in the NSIS script and the GHA

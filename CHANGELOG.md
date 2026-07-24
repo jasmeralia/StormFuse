@@ -36,6 +36,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Fedora/RHEL), AppImages bundle SHA-256-verified static builds, Flatpak uses
   the `ffmpeg-full` runtime extension, and Snap stages Ubuntu's `ffmpeg`
   package. All formats include desktop-menu integration.
+- DEB/RPM enforce a `glibc >= 2.39` (Ubuntu 24.04 LTS) minimum via a
+  version-constrained package dependency, so an incompatible system refuses
+  the install instead of installing successfully and failing to run; AppImage
+  checks the same floor at startup with a clear error message. Flatpak and
+  Snap are unaffected, since both run against their own bundled runtime glibc.
+- The GitHub release now only strictly requires the Windows installer job to
+  succeed — a failing Linux packaging leg no longer withholds the release
+  entirely, though a `verify-release-complete` job still fails the overall
+  workflow run loudly so a partial release gets noticed. `appimagetool` and
+  every release artifact upload are now checksum-verified / failure-checked,
+  and the workflow's default token permissions were reduced from
+  repo-wide `contents: write` to `contents: read`, with `write` granted only
+  to the tag-creation and release-publish jobs that need it.
 
 #### Linux native build (§3, §7.1, §11.3, §12)
 - Added experimental native Linux run/build support: Linux resolves

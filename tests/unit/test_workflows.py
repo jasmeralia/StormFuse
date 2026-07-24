@@ -133,6 +133,54 @@ def test_windows_release_is_not_blocked_by_linux_packaging_failures() -> None:
     assert "verify-release-complete:" in workflow
     assert "One or more packaging jobs did not succeed" in workflow
 
+    # The Windows installer artifact upload and the release-side check both
+    # fail loudly if the primary deliverable is somehow missing, rather than
+    # letting build-installer's success alone stand in for its existence.
+    assert "Verify Windows installer asset is present" in workflow
+    assert "Expected exactly one Windows installer asset" in workflow
+
+
+def test_release_workflow_uses_least_privilege_token_permissions() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    # Default token permissions are read-only; write is granted per-job only
+    # to the tag-creation and release-publish jobs that actually need it.
+    assert "permissions:\n  contents: read" in workflow
+    assert workflow.count("contents: write") == 2
+
+    # The release job needs `actions: read` for `gh run download`, which it
+    # no longer inherits from a repo-wide default.
+    assert "permissions:\n      contents: write\n      actions: read" in workflow
+
+    # Every release-artifact upload fails loudly on an empty match, so a
+    # job's success always implies its artifact actually exists.
+    assert workflow.count("if-no-files-found: error") == 5
+
+
+def test_appimagetool_download_is_checksum_verified() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    hash_file = (REPO_ROOT / "build" / "appimagetool.sha256").read_text(encoding="utf-8")
+
+    assert "sha256sum \"${tool}\"" in workflow
+    assert "checksum mismatch" in workflow
+    assert "appimagetool-x86_64.AppImage" in hash_file
+    assert "appimagetool-aarch64.AppImage" in hash_file
+
+
+def test_linux_packages_enforce_a_glibc_baseline() -> None:
+    nfpm_config = (REPO_ROOT / "build" / "linux" / "nfpm.yaml").read_text(encoding="utf-8")
+    app_run = (REPO_ROOT / "build" / "linux" / "appimage" / "AppRun").read_text(encoding="utf-8")
+
+    # nfpm's overrides replace rather than merge the top-level `depends:`
+    # list, so each format-specific override must repeat `ffmpeg` alongside
+    # its glibc constraint or the dependency would silently be dropped.
+    assert "libc6 (>= 2.39)" in nfpm_config
+    assert "glibc >= 2.39" in nfpm_config
+    assert nfpm_config.count("- ffmpeg") == 3
+
+    assert "GNU_LIBC_VERSION" in app_run
+    assert "required_minor=39" in app_run
+
 
 def test_makefile_supports_windows_virtualenv_paths() -> None:
     makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")

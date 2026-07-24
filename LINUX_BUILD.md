@@ -33,6 +33,26 @@ Download the file for your architecture from
 > equivalent third-party multimedia repository) before installing the
 > StormFuse RPM, or `dnf` will be unable to resolve its `ffmpeg` dependency.
 
+## System Requirements: glibc Baseline
+
+The bundled StormFuse binary is built on `ubuntu-latest` /
+`ubuntu-24.04-arm` (Ubuntu 24.04 LTS, glibc 2.39) and, like any PyInstaller
+Linux build, is only forward-compatible — it will not run on an older glibc.
+This is a hard floor, not a soft recommendation:
+
+| Format | Enforcement |
+|--------|-------------|
+| DEB | Depends on `libc6 (>= 2.39)`. `apt`/`dpkg` refuses to install on an older system. |
+| RPM | Requires `glibc >= 2.39`. `dnf`/`rpm` refuses to install on an older system. |
+| AppImage | `AppRun` checks the host's glibc version at startup and exits with a clear error on an older system, rather than crashing with an opaque dynamic-linker error. |
+| Flatpak | Unaffected — runs against the `org.kde.Platform` runtime's own bundled glibc, not the host's. |
+| Snap | Unaffected — runs against the `core24` base snap's own bundled glibc, not the host's. |
+
+Practically, this means Ubuntu 24.04 LTS or newer (and comparably current
+Debian/Fedora/RHEL releases) for DEB/RPM/AppImage. Anyone on an older system
+should use Flatpak, Snap, or build from source instead — see
+[Building From Source](#run-from-source) below.
+
 ## System Dependencies
 
 The package names below were verified on Kubuntu 26.04:

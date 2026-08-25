@@ -9,7 +9,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QPoint, Qt, QThread, QTimer, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QAction, QActionGroup
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
@@ -38,7 +38,6 @@ from stormfuse.ui.settings_dialog import SettingsDialog, SettingsValues
 from stormfuse.ui.theme import (
     apply_application_theme,
     apply_widget_theme,
-    normalize_theme_mode,
     show_information_message,
 )
 from stormfuse.ui.update_dialog import UpdateDialog
@@ -96,9 +95,6 @@ class MainWindow(QMainWindow):
         self._update_check_thread: QThread | None = None
         self._update_check_worker: _UpdateCheckWorker | None = None
         self._manual_update_check = False
-        self._theme_mode = ui_settings.theme_mode()
-        self._theme_actions: dict[str, QAction] = {}
-        self._theme_action_group: QActionGroup | None = None
 
         self.setWindowTitle("StormFuse")
         self.setMinimumSize(700, 500)
@@ -131,7 +127,7 @@ class MainWindow(QMainWindow):
 
         # Signal wiring
         self._wire_tab_signals()
-        self._apply_theme_mode(self._theme_mode, persist=False)
+        self._apply_theme()
 
         if check_updates_on_startup:
             QTimer.singleShot(0, self._maybe_check_for_updates_on_startup)
@@ -185,10 +181,6 @@ class MainWindow(QMainWindow):
         assert settings_action is not None
         settings_action.triggered.connect(self._show_settings)
 
-        view_menu = bar.addMenu("View")
-        assert view_menu is not None
-        self._build_theme_menu(view_menu)
-
         help_menu = bar.addMenu("Help")
         assert help_menu is not None
 
@@ -213,26 +205,6 @@ class MainWindow(QMainWindow):
         send_logs_action.triggered.connect(
             lambda: show_log_submit_dialog(self, encoder=self._encoder)
         )
-
-    def _build_theme_menu(self, view_menu: QMenu) -> None:
-        action_group = QActionGroup(self)
-        action_group.setExclusive(True)
-        self._theme_actions = {}
-        for mode, label in (
-            ("system", "System Default"),
-            ("light", "Light Mode"),
-            ("dark", "Dark Mode"),
-        ):
-            action = QAction(label, self)
-            action.setCheckable(True)
-            action.triggered.connect(
-                lambda _checked=False, mode=mode: self._change_theme_mode(mode)
-            )
-            action_group.addAction(action)
-            view_menu.addAction(action)
-            self._theme_actions[mode] = action
-        self._theme_action_group = action_group
-        self._sync_theme_menu()
 
     # ------------------------------------------------------------------ #
     # Job management
@@ -450,24 +422,12 @@ class MainWindow(QMainWindow):
         menu.addAction(self._recheck_nvenc_action)
         return menu
 
-    def _change_theme_mode(self, mode: str) -> None:
-        self._apply_theme_mode(mode, persist=True)
-
-    def _apply_theme_mode(self, mode: str, *, persist: bool) -> None:
-        self._theme_mode = normalize_theme_mode(mode)
-        if persist:
-            ui_settings.set_theme_mode(self._theme_mode)
-            self._theme_mode = ui_settings.theme_mode()
-
+    def _apply_theme(self) -> None:
         qapp = QApplication.instance()
         if isinstance(qapp, QApplication):
-            apply_application_theme(qapp, self._theme_mode)
+            apply_application_theme(qapp)
         apply_widget_theme(self)
-        self._sync_theme_menu()
-
-    def _sync_theme_menu(self) -> None:
-        for mode, action in self._theme_actions.items():
-            action.setChecked(mode == self._theme_mode)
+        self._combine_tab.refresh_theme_colors()
 
     def _recheck_nvenc(self) -> None:
         self.set_encoder(self._detect_encoder(self._ffmpeg_exe))

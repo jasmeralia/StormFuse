@@ -120,6 +120,7 @@ class CompressTab(QWidget):
         self._phase_label = QLabel("")
 
         self._run_btn = QPushButton("Run")
+        self._run_btn.setObjectName("primaryButton")
         self._run_btn.setEnabled(False)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setEnabled(False)

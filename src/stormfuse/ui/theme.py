@@ -1,180 +1,381 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Theme helpers for light/dark/system appearance modes."""
+"""Theme helpers for StormFuse's dark interface."""
 
 from __future__ import annotations
 
 import ctypes
 import sys
-from typing import Final, Literal, cast
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QApplication, QMessageBox, QWidget
 
-if sys.platform == "win32":
-    import winreg
-else:
-    winreg = None
+from stormfuse.ui import tokens
 
-ThemeMode = Literal["system", "light", "dark"]
-ResolvedThemeMode = Literal["light", "dark"]
+tok = tokens.DARK
 
-_THEME_MODE_PROPERTY: Final = "stormfuse.theme_mode"
-_RESOLVED_THEME_PROPERTY: Final = "stormfuse.theme_resolved_theme"
-_LIGHT_PALETTE_PROPERTY: Final = "stormfuse.theme_light_palette"
-_DARK_TOOLTIP_STYLESHEET: Final = (
-    "QToolTip {"
-    " color: #f8fafc;"
-    " background-color: #1f2937;"
-    " border: 1px solid #475569;"
-    " padding: 2px;"
-    "}"
-)
+GLOBAL_QSS = f"""
+QWidget {{
+    background-color: {tok.SURFACE};
+    color: {tok.TEXT};
+    font-size: {tok.FONT_BODY[0]}pt;
+    font-weight: {tok.FONT_BODY[1]};
+}}
 
+QWidget:disabled {{
+    color: {tok.TEXT_MUTED};
+}}
 
-def normalize_theme_mode(mode: str | object) -> ThemeMode:
-    """Return a valid persisted theme mode."""
-    value = "" if mode is None else str(mode).strip().lower()
-    if value in {"light", "dark"}:
-        return cast(ThemeMode, value)
-    return "system"
+QMainWindow::separator {{
+    background: {tok.BORDER};
+    width: 1px;
+    height: 1px;
+}}
 
+QDockWidget {{
+    color: {tok.TEXT};
+    titlebar-close-icon: none;
+    titlebar-normal-icon: none;
+}}
 
-def windows_prefers_dark() -> bool:
-    """Return whether Windows app mode currently prefers dark colors."""
-    if sys.platform != "win32":
-        return False
+QDockWidget::title {{
+    background: {tok.SURFACE_RAISED};
+    border: 1px solid {tok.BORDER};
+    padding: 4px 8px;
+}}
 
-    if winreg is None:
-        return False
+QGroupBox {{
+    border: 1px solid {tok.BORDER};
+    border-radius: 4px;
+    margin-top: 10px;
+    padding-top: 10px;
+    font-weight: {tok.FONT_BODY_STRONG[1]};
+}}
 
-    try:
-        with winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER,
-            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
-        ) as key:
-            value, _value_type = winreg.QueryValueEx(key, "AppsUseLightTheme")
-    except OSError, ValueError:
-        return False
+QGroupBox::title {{
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 4px;
+    color: {tok.TEXT};
+}}
 
-    try:
-        return int(value) == 0
-    except TypeError, ValueError:
-        return False
+QPushButton {{
+    background-color: {tok.SURFACE_RAISED};
+    color: {tok.TEXT};
+    border: 1px solid {tok.BORDER};
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-weight: {tok.FONT_BODY_STRONG[1]};
+}}
 
+QPushButton:hover,
+QPushButton:focus {{
+    border-color: {tok.ACCENT};
+}}
 
-def resolve_theme_mode(mode: str) -> ResolvedThemeMode:
-    """Resolve a persisted mode into a concrete light or dark theme."""
-    normalized = normalize_theme_mode(mode)
-    if normalized == "light":
-        return "light"
-    if normalized == "dark":
-        return "dark"
-    if sys.platform == "win32" and windows_prefers_dark():
-        return "dark"
-    if _qt_prefers_dark():
-        return "dark"
-    return "light"
+QPushButton:pressed {{
+    background-color: {tok.SURFACE_INSET};
+    border-color: {tok.ACCENT};
+}}
 
+QPushButton:disabled {{
+    background-color: {tok.SURFACE};
+    color: {tok.TEXT_MUTED};
+    border-color: {tok.BORDER};
+}}
 
-def current_theme_mode(app: QApplication | None = None) -> ThemeMode:
-    """Return the current application theme mode."""
-    qapp = app or QApplication.instance()
-    if not isinstance(qapp, QApplication):
-        return "system"
-    return normalize_theme_mode(qapp.property(_THEME_MODE_PROPERTY))
+QPushButton#primaryButton {{
+    background-color: {tok.SUCCESS};
+    color: {tok.CANVAS};
+    font-weight: 700;
+    font-size: 11pt;
+    padding: 8px 20px;
+    border: none;
+}}
 
+QPushButton#primaryButton:hover {{
+    background-color: {tokens.darken(tok.SUCCESS, 0.85)};
+    border: none;
+}}
 
-def current_resolved_theme(app: QApplication | None = None) -> ResolvedThemeMode:
-    """Return the current concrete application theme."""
-    qapp = app or QApplication.instance()
-    if not isinstance(qapp, QApplication):
-        return resolve_theme_mode("system")
+QPushButton#primaryButton:pressed {{
+    background-color: {tokens.darken(tok.SUCCESS, 0.7)};
+    border: none;
+}}
 
-    resolved = qapp.property(_RESOLVED_THEME_PROPERTY)
-    if resolved in {"light", "dark"}:
-        return cast(ResolvedThemeMode, resolved)
-    return resolve_theme_mode(current_theme_mode(qapp))
+QPushButton#primaryButton:disabled {{
+    background-color: {tok.SURFACE_RAISED};
+    color: {tok.TEXT_MUTED};
+    border: 1px solid {tok.BORDER};
+}}
+
+QLineEdit,
+QTextEdit,
+QPlainTextEdit {{
+    background-color: {tok.SURFACE_INSET};
+    color: {tok.TEXT};
+    border: 1px solid {tok.BORDER};
+    border-radius: 4px;
+    padding: 5px;
+    selection-background-color: {tok.ACCENT};
+    selection-color: {tok.CANVAS};
+}}
+
+QLineEdit:focus,
+QTextEdit:focus,
+QPlainTextEdit:focus {{
+    border-color: {tok.ACCENT};
+}}
+
+QLineEdit:disabled,
+QTextEdit:disabled,
+QPlainTextEdit:disabled {{
+    color: {tok.TEXT_MUTED};
+}}
+
+QTabWidget::pane {{
+    border: 1px solid {tok.BORDER};
+    border-top: none;
+    background: {tok.SURFACE};
+}}
+
+QTabBar::tab {{
+    background-color: {tok.SURFACE};
+    color: {tok.TEXT_MUTED};
+    border: 1px solid {tok.BORDER};
+    padding: 7px 16px;
+    margin-right: 2px;
+}}
+
+QTabBar::tab:selected {{
+    background-color: {tok.SURFACE_RAISED};
+    color: {tok.TEXT};
+    border-bottom-color: {tok.ACCENT};
+}}
+
+QTabBar::tab:hover {{
+    color: {tok.TEXT};
+    border-color: {tok.ACCENT};
+}}
+
+QListWidget {{
+    background-color: {tok.SURFACE_INSET};
+    color: {tok.TEXT};
+    border: 1px solid {tok.BORDER};
+    border-radius: 4px;
+    padding: 2px;
+}}
+
+QListWidget::item:selected {{
+    background-color: {tok.ACCENT};
+    color: {tok.CANVAS};
+}}
+
+QListWidget::item:hover {{
+    background-color: {tokens.with_alpha(tok.ACCENT, 0.2)};
+}}
+
+QCheckBox {{
+    color: {tok.TEXT};
+    spacing: 6px;
+}}
+
+QCheckBox:disabled {{
+    color: {tok.TEXT_MUTED};
+}}
+
+QCheckBox::indicator {{
+    width: 14px;
+    height: 14px;
+    background-color: {tok.SURFACE_INSET};
+    border: 1px solid {tok.BORDER};
+    border-radius: 3px;
+}}
+
+QCheckBox::indicator:hover {{
+    border-color: {tok.ACCENT};
+}}
+
+QCheckBox::indicator:checked {{
+    background-color: {tok.ACCENT};
+    border-color: {tok.ACCENT};
+}}
+
+QCheckBox::indicator:disabled {{
+    background-color: {tok.SURFACE};
+    border-color: {tok.BORDER};
+}}
+
+QProgressBar {{
+    border: 1px solid {tok.BORDER};
+    border-radius: 4px;
+    background-color: {tok.SURFACE_INSET};
+    text-align: center;
+    color: {tok.TEXT};
+}}
+
+QProgressBar::chunk {{
+    background-color: {tok.ACCENT};
+    border-radius: 3px;
+}}
+
+QSlider::groove:horizontal {{
+    height: 6px;
+    background: {tok.SURFACE_INSET};
+    border: 1px solid {tok.BORDER};
+    border-radius: 3px;
+}}
+
+QSlider::handle:horizontal {{
+    width: 14px;
+    margin: -5px 0;
+    background: {tok.ACCENT};
+    border: 1px solid {tokens.darken(tok.ACCENT, 0.85)};
+    border-radius: 7px;
+}}
+
+QSlider::sub-page:horizontal {{
+    background: {tokens.with_alpha(tok.ACCENT, 0.45)};
+    border-radius: 3px;
+}}
+
+QStatusBar {{
+    background: {tok.SURFACE_RAISED};
+    color: {tok.TEXT_SECONDARY};
+    border-top: 1px solid {tok.BORDER};
+}}
+
+QMenuBar {{
+    background: {tok.SURFACE_RAISED};
+    color: {tok.TEXT};
+    border-bottom: 1px solid {tok.BORDER};
+}}
+
+QMenuBar::item:selected {{
+    background: {tokens.with_alpha(tok.ACCENT, 0.2)};
+}}
+
+QMenu {{
+    background: {tok.SURFACE_RAISED};
+    color: {tok.TEXT};
+    border: 1px solid {tok.BORDER};
+}}
+
+QMenu::item:selected {{
+    background: {tok.ACCENT};
+    color: {tok.CANVAS};
+}}
+
+QLabel#sourceSize,
+QLabel#encoderBadge,
+QLabel#bitratePreview {{
+    color: {tok.TEXT_SECONDARY};
+}}
+
+QLabel#strategyWhy {{
+    color: {tok.ACCENT};
+    font-weight: 600;
+    text-decoration: underline;
+}}
+
+QToolTip {{
+    color: {tok.TEXT};
+    background-color: {tok.SURFACE_RAISED};
+    border: 1px solid {tok.BORDER};
+    padding: 4px;
+}}
+
+QScrollBar:vertical {{
+    background: {tok.SURFACE};
+    width: 8px;
+    margin: 0;
+}}
+
+QScrollBar:horizontal {{
+    background: {tok.SURFACE};
+    height: 8px;
+    margin: 0;
+}}
+
+QScrollBar::handle:vertical,
+QScrollBar::handle:horizontal {{
+    background: {tok.SURFACE_RAISED};
+    border-radius: 4px;
+    min-height: 24px;
+    min-width: 24px;
+}}
+
+QScrollBar::handle:vertical:hover,
+QScrollBar::handle:horizontal:hover {{
+    background: {tok.BORDER};
+}}
+
+QScrollBar::add-line,
+QScrollBar::sub-line,
+QScrollBar::add-page,
+QScrollBar::sub-page {{
+    background: none;
+    border: none;
+}}
+"""
 
 
 def dark_palette() -> QPalette:
     """Build the application's dark palette."""
     palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window, QColor(32, 36, 43))
-    palette.setColor(QPalette.ColorRole.WindowText, QColor(243, 244, 246))
-    palette.setColor(QPalette.ColorRole.Base, QColor(22, 27, 34))
-    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(44, 52, 62))
-    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(22, 27, 34))
-    palette.setColor(QPalette.ColorRole.ToolTipText, QColor(243, 244, 246))
-    palette.setColor(QPalette.ColorRole.Text, QColor(243, 244, 246))
-    palette.setColor(QPalette.ColorRole.Button, QColor(44, 52, 62))
-    palette.setColor(QPalette.ColorRole.ButtonText, QColor(243, 244, 246))
-    palette.setColor(QPalette.ColorRole.BrightText, QColor(255, 99, 71))
-    palette.setColor(QPalette.ColorRole.Highlight, QColor(72, 133, 237))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
-    palette.setColor(QPalette.ColorRole.Link, QColor(96, 165, 250))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(148, 163, 184))
+    palette.setColor(QPalette.ColorRole.Window, QColor(tok.SURFACE))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor(tok.TEXT))
+    palette.setColor(QPalette.ColorRole.Base, QColor(tok.SURFACE_INSET))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(tok.SURFACE_RAISED))
+    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(tok.SURFACE_RAISED))
+    palette.setColor(QPalette.ColorRole.ToolTipText, QColor(tok.TEXT))
+    palette.setColor(QPalette.ColorRole.Text, QColor(tok.TEXT))
+    palette.setColor(QPalette.ColorRole.Button, QColor(tok.SURFACE_RAISED))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor(tok.TEXT))
+    palette.setColor(QPalette.ColorRole.BrightText, QColor(tok.DANGER))
+    palette.setColor(QPalette.ColorRole.Link, QColor(tok.ACCENT))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor(tok.ACCENT))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(tok.CANVAS))
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(tok.TEXT_MUTED))
     palette.setColor(
         QPalette.ColorGroup.Disabled,
         QPalette.ColorRole.Text,
-        QColor(148, 163, 184),
+        QColor(tok.TEXT_MUTED),
     )
     palette.setColor(
         QPalette.ColorGroup.Disabled,
         QPalette.ColorRole.ButtonText,
-        QColor(148, 163, 184),
+        QColor(tok.TEXT_MUTED),
     )
     return palette
 
 
-def apply_application_theme(app: QApplication, mode: str) -> ResolvedThemeMode:
-    """Apply the selected theme to the entire QApplication."""
-    default_palette = app.property(_LIGHT_PALETTE_PROPERTY)
-    if not isinstance(default_palette, QPalette):
-        default_palette = QPalette(app.palette())
-        app.setProperty(_LIGHT_PALETTE_PROPERTY, default_palette)
-
-    normalized = normalize_theme_mode(mode)
-    resolved = resolve_theme_mode(normalized)
-
-    if resolved == "dark":
-        app.setPalette(dark_palette())
-        app.setStyleSheet(_DARK_TOOLTIP_STYLESHEET)
-    else:
-        app.setPalette(QPalette(default_palette))
-        app.setStyleSheet("")
-
-    app.setProperty(_THEME_MODE_PROPERTY, normalized)
-    app.setProperty(_RESOLVED_THEME_PROPERTY, resolved)
+def apply_application_theme(app: QApplication) -> None:
+    """Apply the dark theme to the entire QApplication."""
+    app.setStyle("Fusion")
+    app.setPalette(dark_palette())
+    app.setStyleSheet(GLOBAL_QSS)
 
     for widget in app.topLevelWidgets():
-        apply_title_bar_theme(widget, resolved)
-
-    return resolved
+        apply_title_bar_theme(widget)
 
 
-def apply_widget_theme(widget: QWidget) -> ResolvedThemeMode:
-    """Ensure a widget follows the application's current theme and title-bar mode."""
+def apply_widget_theme(widget: QWidget) -> None:
+    """Ensure a widget follows the application theme and title-bar mode."""
     qapp = QApplication.instance()
-    if not isinstance(qapp, QApplication):
-        return resolve_theme_mode("system")
-
-    resolved = apply_application_theme(qapp, current_theme_mode(qapp))
-    apply_title_bar_theme(widget, resolved)
-    QTimer.singleShot(
-        0, lambda widget=widget, resolved=resolved: apply_title_bar_theme(widget, resolved)
-    )
-    return resolved
+    if isinstance(qapp, QApplication):
+        apply_application_theme(qapp)
+    apply_title_bar_theme(widget)
+    QTimer.singleShot(0, lambda widget=widget: apply_title_bar_theme(widget))
 
 
-def apply_title_bar_theme(widget: QWidget, mode: ResolvedThemeMode | None = None) -> bool:
-    """Apply dark-mode title bar styling on supported Windows builds."""
+def apply_title_bar_theme(widget: QWidget) -> bool:
+    """Apply dark title bar styling on supported Windows builds."""
     if sys.platform != "win32":
         return False
     if not widget.isWindow():
         return False
 
-    resolved = mode or current_resolved_theme()
     try:
         hwnd = int(widget.winId())
     except AttributeError, RuntimeError:
@@ -184,7 +385,7 @@ def apply_title_bar_theme(widget: QWidget, mode: ResolvedThemeMode | None = None
     if windll is None or not hasattr(windll, "dwmapi"):
         return False
 
-    value = ctypes.c_int(1 if resolved == "dark" else 0)
+    value = ctypes.c_int(1)
     hwnd_value = ctypes.c_void_p(hwnd)
     value_size = ctypes.sizeof(value)
     for attribute in (20, 19):
@@ -222,17 +423,3 @@ def _show_message(
     box.setStandardButtons(QMessageBox.StandardButton.Ok)
     apply_widget_theme(box)
     return box.exec()
-
-
-def _qt_prefers_dark() -> bool:
-    qapp = QApplication.instance()
-    if not isinstance(qapp, QApplication):
-        return False
-
-    try:
-        style_hints = qapp.styleHints()
-        if style_hints is None:
-            return False
-        return style_hints.colorScheme() == Qt.ColorScheme.Dark
-    except AttributeError:
-        return False

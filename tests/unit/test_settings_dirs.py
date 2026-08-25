@@ -26,14 +26,6 @@ def test_update_preferences_round_trip(tmp_path) -> None:
     assert settings.allow_prerelease_updates_enabled()
 
 
-def test_theme_mode_round_trip(tmp_path) -> None:
-    QSettings.setPath(QSettings.Format.NativeFormat, QSettings.Scope.UserScope, str(tmp_path))
-
-    settings.set_theme_mode("dark")
-
-    assert settings.theme_mode() == "dark"
-
-
 def test_debug_ffmpeg_logging_round_trip(tmp_path) -> None:
     QSettings.setPath(QSettings.Format.NativeFormat, QSettings.Scope.UserScope, str(tmp_path))
 

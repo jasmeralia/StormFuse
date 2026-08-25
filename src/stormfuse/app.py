@@ -32,8 +32,8 @@ from stormfuse.ui.error_dialogs import (
     show_diagnostic_dialog,
 )
 from stormfuse.ui.main_window import MainWindow
-from stormfuse.ui.settings import debug_ffmpeg_logging_enabled, theme_mode
-from stormfuse.ui.theme import apply_application_theme, current_theme_mode
+from stormfuse.ui.settings import debug_ffmpeg_logging_enabled
+from stormfuse.ui.theme import apply_application_theme
 
 log = logging.getLogger("stormfuse.app")
 
@@ -60,23 +60,6 @@ def _missing_ffmpeg_next_step() -> str:
         "If you are running from source, run 'make fetch-ffmpeg'. "
         "If this is an installed copy, reinstall StormFuse or open Troubleshooting."
     )
-
-
-def _install_system_theme_listener(app: QApplication) -> None:
-    try:
-        style_hints = app.styleHints()
-        if style_hints is None:
-            return
-        color_scheme_changed = style_hints.colorSchemeChanged
-    except AttributeError:
-        return
-
-    def _reapply_system_theme() -> None:
-        mode = current_theme_mode(app)
-        if mode == "system":
-            apply_application_theme(app, mode)
-
-    color_scheme_changed.connect(_reapply_system_theme)
 
 
 def run_app() -> int:
@@ -111,8 +94,7 @@ def run_app() -> int:
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationName(ORG_NAME)
-    apply_application_theme(app, theme_mode())
-    _install_system_theme_listener(app)
+    apply_application_theme(app)
     configure_debug_logging(debug_ffmpeg_logging_enabled())
     install_qt_message_handler()
     install_signal_hooks()

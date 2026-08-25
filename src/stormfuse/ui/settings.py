@@ -17,7 +17,6 @@ KEY_COMBINE_ADD = "dirs/combine_add_files"
 KEY_COMBINE_OUT = "dirs/combine_output"
 KEY_COMPRESS_IN = "dirs/compress_input"
 KEY_COMPRESS_OUT = "dirs/compress_output"
-KEY_THEME_MODE = "appearance/theme_mode"
 KEY_DEBUG_FFMPEG_LOGGING = "diagnostics/debug_ffmpeg_logging"
 KEY_UPDATE_AUTO_CHECK = "updates/auto_check"
 KEY_UPDATE_ALLOW_PRERELEASE = "updates/allow_prerelease"
@@ -47,23 +46,6 @@ def bool_value(key: str, default: bool) -> bool:
 def remember_bool(key: str, value: bool) -> None:
     """Persist *value* for *key*."""
     QSettings(ORG_NAME, APP_NAME).setValue(key, value)
-
-
-def theme_mode() -> str:
-    """Return the persisted theme mode."""
-    value = QSettings(ORG_NAME, APP_NAME).value(KEY_THEME_MODE, "system")
-    normalized = "" if value is None else str(value).strip().lower()
-    if normalized in {"light", "dark"}:
-        return normalized
-    return "system"
-
-
-def set_theme_mode(mode: str) -> None:
-    """Persist the theme mode preference."""
-    normalized = str(mode).strip().lower()
-    if normalized not in {"system", "light", "dark"}:
-        normalized = "system"
-    QSettings(ORG_NAME, APP_NAME).setValue(KEY_THEME_MODE, normalized)
 
 
 def debug_ffmpeg_logging_enabled() -> bool:

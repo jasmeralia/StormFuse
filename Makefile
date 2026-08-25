@@ -15,7 +15,7 @@ PIP      := $(PY) -m pip
 FFMPEG_SHA256_FILE := build/ffmpeg.sha256
 FFMPEG_DIR         := resources/ffmpeg
 
-.PHONY: venv deps version-file fetch-ffmpeg fetch-ffmpeg-linux-amd64 fetch-ffmpeg-linux-arm64 generate-third-party run lint lintfix format test test-functional test-all installer clean
+.PHONY: venv deps version-file fetch-ffmpeg fetch-ffmpeg-linux-amd64 fetch-ffmpeg-linux-arm64 generate-third-party screenshots run lint lintfix format test test-functional test-all installer clean
 
 venv:
 	@command -v $(PYTHON) >/dev/null 2>&1 || \
@@ -53,6 +53,9 @@ fetch-ffmpeg-linux-arm64:
 
 generate-third-party:
 	$(PY) build/generate_third_party.py
+
+screenshots: deps
+	QT_QPA_PLATFORM=offscreen $(PY) tools/screenshots/generate_readme_screenshots.py
 
 run: deps
 	$(PY) -m stormfuse

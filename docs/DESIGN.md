@@ -270,9 +270,8 @@ and enables Cancel. No queue, no parallelism — this is intentional.
 ### 6.1 Main window
 
 - `QMainWindow` titled "StormFuse".
-- Menu bar: **File** (Exit, Settings), **View** (System Default, Light Mode,
-  Dark Mode), **Help** (Check for Updates, About, Open Logs, Send Logs...,
-  Clear Log Files).
+- Menu bar: **File** (Exit, Settings), **Help** (Check for Updates, About,
+  Open Logs, Send Logs..., Clear Log Files).
 - Central widget: `QTabWidget` with two tabs, "Combine" and "Compress".
 - Status bar: shows encoder badge (`NVENC` / `libx264`), current job state
   (`Idle` / `Running: <phase>` / `Cancelling`), and elapsed/ETA when running.
@@ -344,17 +343,10 @@ and enables Cancel. No queue, no parallelism — this is intentional.
 
 ### 6.5 Appearance
 
-- A persisted `theme_mode` UI preference stores one of `system`, `light`, or `dark`.
-- Default mode is `system`.
-- On Windows, `system` follows the user's OS app-theme preference from the
-  standard Personalize registry key.
+- StormFuse uses a single dark interface theme applied at startup.
 - Theme changes apply live to the main window and modal dialogs, including About,
   diagnostics, log submission, update prompts, and progress dialogs.
-- In `system` mode, Qt's `colorSchemeChanged` signal is used when available to
-  re-apply the resolved light/dark theme while StormFuse is running. Explicit
-  user-selected `light` or `dark` modes are not overridden by live OS changes.
-- Where supported, top-level windows request a dark native title bar while the
-  resolved theme is dark.
+- Where supported, top-level windows request a dark native title bar on Windows.
 
 ### 6.6 Diagnostics preferences
 

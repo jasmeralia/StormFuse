@@ -7,14 +7,11 @@ import time
 from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QMenu, QTabWidget
 from pytestqt.qtbot import QtBot
 
-from stormfuse.config import APP_NAME, ORG_NAME
 from stormfuse.ffmpeg.encoders import EncoderChoice
 from stormfuse.jobs.base import Job
-from stormfuse.ui import settings as ui_settings
 from stormfuse.ui.main_window import MainWindow
 from stormfuse.ui.settings_dialog import SettingsValues
 
@@ -217,74 +214,6 @@ def test_settings_values_persist_and_reconfigure_debug_logging(
     assert saved_auto_updates == [False]
     assert saved_beta_updates == [True]
     assert configured == [True, True]
-
-
-def test_view_menu_updates_checked_theme_action(
-    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    saved_mode = {"value": "system"}
-    applied_modes: list[str] = []
-
-    monkeypatch.setattr(
-        "stormfuse.ui.main_window.ui_settings.theme_mode",
-        lambda: saved_mode["value"],
-    )
-    monkeypatch.setattr(
-        "stormfuse.ui.main_window.ui_settings.set_theme_mode",
-        lambda mode: saved_mode.__setitem__("value", mode),
-    )
-    monkeypatch.setattr(
-        "stormfuse.ui.main_window.apply_application_theme",
-        lambda _app, mode: applied_modes.append(mode) or "light",
-    )
-    monkeypatch.setattr("stormfuse.ui.main_window.apply_widget_theme", lambda _widget: "light")
-
-    window = MainWindow(
-        ffmpeg_exe=tmp_path / "ffmpeg.exe",
-        ffprobe_exe=tmp_path / "ffprobe.exe",
-        encoder=EncoderChoice.NVENC,
-    )
-    qtbot.addWidget(window)
-    window.show()
-
-    view_menu = next(
-        action.menu()
-        for action in window.menuBar().actions()
-        if action.text() == "View" and isinstance(action.menu(), QMenu)
-    )
-
-    actions = {action.text(): action for action in view_menu.actions()}
-    assert actions["System Default"].isChecked()
-
-    actions["Dark Mode"].trigger()
-
-    assert saved_mode["value"] == "dark"
-    assert applied_modes[-1] == "dark"
-    assert actions["Dark Mode"].isChecked()
-    assert not actions["System Default"].isChecked()
-
-
-def test_main_window_restores_persisted_theme_mode(qtbot: QtBot, tmp_path: Path) -> None:
-    QSettings.setPath(QSettings.Format.NativeFormat, QSettings.Scope.UserScope, str(tmp_path))
-    QSettings(ORG_NAME, APP_NAME).clear()
-    ui_settings.set_theme_mode("dark")
-
-    window = MainWindow(
-        ffmpeg_exe=tmp_path / "ffmpeg.exe",
-        ffprobe_exe=tmp_path / "ffprobe.exe",
-        encoder=EncoderChoice.NVENC,
-    )
-    qtbot.addWidget(window)
-    window.show()
-
-    view_menu = next(
-        action.menu()
-        for action in window.menuBar().actions()
-        if action.text() == "View" and isinstance(action.menu(), QMenu)
-    )
-
-    checked_actions = [action.text() for action in view_menu.actions() if action.isChecked()]
-    assert checked_actions == ["Dark Mode"]
 
 
 def test_startup_update_check_uses_saved_preference(

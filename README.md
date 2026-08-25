@@ -57,6 +57,9 @@ Useful log entry points:
 
 ## UI Walkthrough
 
+All screenshots below use fabricated sample filenames and folders — no real user
+media paths.
+
 ### Combine
 
 ![Combine walkthrough](docs/images/combine-walkthrough.png)
@@ -77,6 +80,8 @@ Use the Compress tab to:
 - Set a target size from 1.0 GB to 10.0 GB. The default is 9.5 GB to leave headroom under the MFC Share 10 GB limit.
 - Optionally enable 2-pass mode for tighter size targeting.
 - Save to MP4 with AAC audio (`192 kbps`, stereo, `48 kHz`) and `+faststart`.
+
+Regenerate the walkthrough images after UI changes with `make screenshots`.
 
 ## Troubleshooting
 
@@ -140,6 +145,7 @@ StormFuse development goes through the `Makefile`.
 | `make fetch-ffmpeg-linux-amd64` | Fetch verified amd64 static binaries for AppImage CI only |
 | `make fetch-ffmpeg-linux-arm64` | Fetch verified arm64 static binaries for AppImage CI only |
 | `make run` | Launch StormFuse from source |
+| `make screenshots` | Regenerate README walkthrough PNGs (offscreen) |
 | `make lintfix` | Run `ruff format` and `ruff check --fix` |
 | `make lint` | Run `ruff`, `mypy`, and `pylint` |
 | `make test` | Run the Linux-compatible unit suite |

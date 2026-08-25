@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### Appearance (§6.5)
+- StormFuse now uses a single dark interface theme. Removed the View menu and
+  the persisted system/light/dark appearance preference.
+
 #### Linux update checks (§6.4)
 - Linux continues to check GitHub Releases for newer versions but no longer
   selects, downloads, or attempts to launch a Windows installer. The update

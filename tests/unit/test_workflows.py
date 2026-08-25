@@ -186,7 +186,7 @@ def test_appimagetool_download_is_checksum_verified() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     hash_file = (REPO_ROOT / "build" / "appimagetool.sha256").read_text(encoding="utf-8")
 
-    assert "sha256sum \"${tool}\"" in workflow
+    assert 'sha256sum "${tool}"' in workflow
     assert "checksum mismatch" in workflow
     assert "appimagetool-x86_64.AppImage" in hash_file
     assert "appimagetool-aarch64.AppImage" in hash_file

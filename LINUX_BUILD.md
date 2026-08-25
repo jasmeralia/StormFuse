@@ -124,9 +124,3 @@ Packaged builds install or export `resources/linux/stormfuse.desktop` and the
 existing StormFuse icon. DEB and RPM packages place the application under
 `/usr/lib/stormfuse` and expose `/usr/bin/stormfuse`; the sandboxed and portable
 formats provide their own equivalent launch entry.
-
-## Theme Detection
-
-System light/dark theme detection requires a running XDG desktop portal,
-including `xdg-desktop-portal` and `xdg-desktop-portal-kde`. Kubuntu installs
-these by default.

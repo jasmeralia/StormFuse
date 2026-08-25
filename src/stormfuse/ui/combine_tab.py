@@ -26,6 +26,7 @@ from stormfuse.ffmpeg.locator import ffprobe_path
 from stormfuse.ffmpeg.probe import FileProbe, probe
 from stormfuse.jobs.base import JobError, JobResult
 from stormfuse.jobs.probe import ProbeFilesJob, ProbeFilesResult
+from stormfuse.ui import tokens
 from stormfuse.ui.error_dialogs import build_job_failure_guidance, show_diagnostic_dialog
 from stormfuse.ui.settings import KEY_COMBINE_ADD, KEY_COMBINE_OUT, last_dir, remember_dir
 from stormfuse.ui.theme import show_warning_message
@@ -95,9 +96,6 @@ class CombineTab(QWidget):
         self._why_label = QLabel("Why?")
         self._why_label.setObjectName("strategyWhy")
         self._why_label.setVisible(False)
-        self._why_label.setStyleSheet(
-            "QLabel { color: #1d4ed8; font-weight: 600; text-decoration: underline; }"
-        )
 
         preview_header = QHBoxLayout()
         preview_header.addWidget(self._strategy_toggle)
@@ -148,6 +146,7 @@ class CombineTab(QWidget):
         self._phase_label = QLabel("")
 
         self._run_btn = QPushButton("Run")
+        self._run_btn.setObjectName("primaryButton")
         self._run_btn.setEnabled(False)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setEnabled(False)
@@ -170,6 +169,10 @@ class CombineTab(QWidget):
     # ------------------------------------------------------------------ #
     # Public slots called by MainWindow
     # ------------------------------------------------------------------ #
+
+    def refresh_theme_colors(self) -> None:
+        """Re-apply theme-aware preview colors after an appearance change."""
+        self._refresh_preview()
 
     def set_encoder(self, choice: EncoderChoice) -> None:
         self._encoder = choice
@@ -291,6 +294,9 @@ class CombineTab(QWidget):
         )
         self._strategy_details.setVisible(checked and bool(self._strategy_details.text()))
 
+    def _theme_tokens(self) -> tokens.ThemeTokens:
+        return tokens.DARK
+
     def _set_strategy_state(
         self,
         *,
@@ -315,10 +321,11 @@ class CombineTab(QWidget):
 
     def _refresh_preview(self) -> None:
         paths = self._file_list.all_paths()
+        tok = self._theme_tokens()
         if not paths:
             self._set_strategy_state(
                 summary="Add files to begin.",
-                color="#475569",
+                color=tok.TEXT_MUTED,
                 details="",
             )
             return
@@ -330,7 +337,7 @@ class CombineTab(QWidget):
             noun = "input" if count == 1 else "inputs"
             self._set_strategy_state(
                 summary=f"Probing {count} {noun}…",
-                color="#475569",
+                color=tok.TEXT_MUTED,
                 details="",
             )
             return
@@ -338,7 +345,7 @@ class CombineTab(QWidget):
         if len(paths) < 2:
             self._set_strategy_state(
                 summary="Add at least two files to preview the concat strategy.",
-                color="#475569",
+                color=tok.TEXT_MUTED,
                 details="",
             )
             return
@@ -347,10 +354,11 @@ class CombineTab(QWidget):
         self._apply_plan(make_concat_plan(probes))
 
     def _apply_plan(self, plan: ConcatPlan) -> None:
+        tok = self._theme_tokens()
         if plan.strategy == ConcatStrategy.STREAM_COPY:
             self._set_strategy_state(
                 summary="Will stream-copy concat",
-                color="#15803d",
+                color=tok.SUCCESS,
                 details=(
                     f"All {len(plan.inputs)} inputs match on video and audio signatures, "
                     "so the final combine can stay on the copy path."
@@ -373,7 +381,7 @@ class CombineTab(QWidget):
         ]
         self._set_strategy_state(
             summary=f"Will normalize {len(plan.normalize_indices)} of {len(plan.inputs)} inputs",
-            color="#b45309",
+            color=tok.WARNING,
             details="\n".join(detail_lines),
             why_tooltip="\n".join(why_lines),
         )
@@ -449,8 +457,9 @@ class CombineTab(QWidget):
         current_paths = set(self._file_list.all_paths())
         if not any(path in current_paths for path in expected_paths):
             return
+        tok = self._theme_tokens()
         self._set_strategy_state(
             summary="Preview unavailable until inputs can be probed.",
-            color="#92400e",
+            color=tok.DANGER,
             details=error.message,
         )
